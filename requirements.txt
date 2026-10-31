@@ -1,0 +1,12 @@
+# Python 3.12; app, classical/neural research code, offline checks and plotting.
+-r app/requirements.txt
+scipy==1.18.1
+scikit-learn==1.9.1
+joblib==1.6.0
+matplotlib==3.10.9
+pandas==2.2.3
+psutil==7.2.2
+
+# Broader model comparisons and frozen A–D implementation.
+torch==2.14.1
+xgboost==3.4.1

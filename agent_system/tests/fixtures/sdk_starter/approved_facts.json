@@ -1,0 +1,240 @@
+{
+  "snapshot": "approved research records copied 2026-10-22; frozen-release scope; not live inventory",
+  "facts": [
+    {
+      "answer": "The source inventory contained 30,053,455 expression values across 607 candidate profiles. After eligibility checks and technical-repeat grouping, development uses 567 profiles: 145 core and 422 auxiliary. Values are not independent training samples.",
+      "id": "inventory",
+      "question": "Did we include 30 million gene expression values?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#datasets"
+        }
+      ],
+      "terms": [
+        "30 million",
+        "30m",
+        "expression values",
+        "candidate profiles"
+      ]
+    },
+    {
+      "answer": "The core cohort contains 145 profiles in three studies and 30 study-local donor groups: GSE102971 (100 profiles), GSE8917 (25), and GSE65292 (20). Cross-study donor identities have not been independently verified.",
+      "id": "core",
+      "question": "How many core profiles and donors are there?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#datasets"
+        }
+      ],
+      "terms": [
+        "core profiles",
+        "core cohort",
+        "core donors"
+      ]
+    },
+    {
+      "answer": "The 422 eligible auxiliary profiles are GSE85570 (400), GSE97000 (12) and the selected normal-gravity GSE20173 subset (10).",
+      "id": "auxiliary",
+      "question": "Which auxiliary studies were included?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#datasets"
+        }
+      ],
+      "terms": [
+        "auxiliary",
+        "additional studies"
+      ]
+    },
+    {
+      "answer": "The consumed final test was GSE90909 photon/control: 52 profiles from 12 donor groups, 0\u20134 Gy, approximately 24 hours. There were 11 controls and six 4 Gy profiles.",
+      "id": "final-cohort",
+      "question": "What was the final test cohort?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#experiments"
+        }
+      ],
+      "terms": [
+        "final test cohort",
+        "test profiles",
+        "test donors",
+        "gse90909"
+      ]
+    },
+    {
+      "answer": "Model A superiority was not supported. All three one-sided A-versus-B/C/D comparisons had Holm-adjusted p = 1.000. Non-rejection does not establish equivalence.",
+      "id": "hypothesis",
+      "question": "Did Model A outperform B, C and D?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#experiments"
+        }
+      ],
+      "terms": [
+        "superiority",
+        "hypothesis",
+        "outperform",
+        "p value",
+        "p-value",
+        "holm"
+      ]
+    },
+    {
+      "answer": "Development model evaluation used training-only normalization, imputation, scaling and gene selection with donor grouping. The final models and preprocessing were frozen before the one-time test. The descriptive explorer uses full development data and must not be used as training-fold features.",
+      "id": "leakage",
+      "question": "How was preprocessing protected from leakage?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#experiments"
+        }
+      ],
+      "terms": [
+        "leakage",
+        "training-only",
+        "preprocessing"
+      ]
+    },
+    {
+      "answer": "No. The final metric intervals are 95% donor-percentile bootstrap intervals from 10,000 shared donor resamples, conditional on the fixed models and dose design. No calibrated individual dose prediction interval is available.",
+      "id": "interval",
+      "question": "Are the error bars individual prediction intervals?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#experiments"
+        }
+      ],
+      "terms": [
+        "interval",
+        "confidence",
+        "bootstrap"
+      ]
+    },
+    {
+      "answer": "No. This is a research prototype, not clinically validated. Supported research inputs require human whole blood, an audited ex vivo photon/control context near 24 hours and model-specific assay/provenance review.",
+      "id": "clinical",
+      "question": "Can this be used clinically?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#predictions"
+        }
+      ],
+      "terms": [
+        "clinical",
+        "patient",
+        "diagnosis",
+        "treatment",
+        "safe dose"
+      ]
+    },
+    {
+      "answer": "Clustering exposed study-associated structure, including separation of controls. The core Gaussian-mixture clusters matched study membership. The tested cluster/PCA predictors did not improve on the earlier Elastic Net reference. This does not identify a unique technical or biological cause.",
+      "id": "clustering",
+      "question": "Did clustering improve prediction?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#analysis"
+        }
+      ],
+      "terms": [
+        "clustering",
+        "clusters",
+        "k-means",
+        "gaussian mixture"
+      ]
+    },
+    {
+      "answer": "The development comparison contains 20 dose predictors, including A\u2013D neural models, Elastic Net, Lasso, Ridge, linear/RBF SVR, Random Forest, XGBoost, AdaBoost, bounded polynomial regression, PLS, median and cluster/PCA predictors. Three exposure classifiers are reported separately. CNNs and reinforcement learning were discussed but not trained.",
+      "id": "models",
+      "question": "Which other models were tested?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#experiments"
+        }
+      ],
+      "terms": [
+        "other models",
+        "all models",
+        "cnn",
+        "reinforcement",
+        "model families"
+      ]
+    },
+    {
+      "answer": "Bounded engineering training runs on the project Mac. The cloud app queues work and stores results. The Mac must be awake, connected and authenticated. Reviewer accounts have two engineering jobs per UTC month within the shared project guard.",
+      "id": "training",
+      "question": "Where does live training run?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#experiments"
+        }
+      ],
+      "terms": [
+        "live training",
+        "training run",
+        "train a model",
+        "where train"
+      ]
+    },
+    {
+      "answer": "A new upload requires a server-side compatibility decision bound to its content and frozen model release. Unknown or unsupported assays receive QC and an explanation instead of a dose. Curated real development examples have training overlap and only demonstrate functionality.",
+      "id": "upload",
+      "question": "Can a new upload receive a dose immediately?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#predictions"
+        }
+      ],
+      "terms": [
+        "upload",
+        "compatibility",
+        "input format"
+      ]
+    },
+    {
+      "answer": "No. PCA, quality flags and clustering support review. Unusual samples are not automatically deleted from the explorer; technical measurements are masked according to the audited preprocessing policy.",
+      "id": "outliers",
+      "question": "Were outliers automatically removed?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#analysis"
+        }
+      ],
+      "terms": [
+        "outlier",
+        "removed",
+        "deleted"
+      ]
+    },
+    {
+      "answer": "Each dose is paired with the same donor\u2019s control within a study. Donor repeats are averaged first. Two-sided t tests use at least three complete donor pairs and nonzero variance; Benjamini\u2013Hochberg correction covers all testable genes within each contrast. These are exploratory associations.",
+      "id": "statistics",
+      "question": "How are differential expression contrasts calculated?",
+      "sources": [
+        {
+          "label": "Project evidence",
+          "url": "https://defender-research-public.vercel.app/#analysis"
+        }
+      ],
+      "terms": [
+        "differential expression",
+        "contrast",
+        "benjamini",
+        "dose response"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+options(warn=2)
+.libPaths(c(normalizePath("data/local_runtime/R-library"),.libPaths()))
+library(limma)
+args<-commandArgs(trailingOnly=TRUE)
+n<-as.integer(args[1]);m<-as.integer(args[2])
+x<-matrix(readBin(args[3],"double",n=n*m,size=8,endian="little"),nrow=n)
+y<-matrix(NA_real_,nrow=n,ncol=m); records<-list()
+for(j in seq_len(m)){
+ fit<-normexp.fit(x[,j],method="saddle")
+ records[[j]]<-data.frame(column=j,convergence=fit$convergence,finite_parameters=all(is.finite(fit$par)))
+ write.csv(do.call(rbind,records),args[5],row.names=FALSE)
+ stopifnot(fit$convergence==0,all(is.finite(fit$par)))
+ y[,j]<-normexp.signal(fit$par,x[,j])
+}
+stopifnot(identical(is.na(y),is.na(x)),all(y[is.finite(y)]>0))
+writeBin(as.double(y),args[4],size=8,endian="little")
+capture.output(sessionInfo(),file=args[6])

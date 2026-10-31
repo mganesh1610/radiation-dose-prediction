@@ -1,0 +1,3 @@
+# Source verification only; install in its own environment.
+-r requirements.txt
+pytest==9.1.1

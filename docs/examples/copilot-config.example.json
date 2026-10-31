@@ -1,0 +1,27 @@
+{
+  "project": "your-project-id",
+  "control_bucket": "your-private-control-bucket",
+  "session_location": "your-supported-session-location",
+  "engine_id": "your-managed-engine-id",
+  "iap_audience": "/projects/123456789012/locations/us-west1/services/your-website-service",
+  "coordinator_service_email": "research-coordinator@your-project-id.iam.gserviceaccount.com",
+  "policy_file": "/workspace/config/membership-policy.json",
+  "admission_file": "/workspace/config/expression-admission.json",
+  "admission_sha256": "REPLACE_WITH_SHA256_OF_YOUR_REVIEWED_ADMISSION_FILE",
+  "chat": {
+    "workspace": "research_pilot",
+    "release_id": "core_REPLACE_WITH_REVIEWED_RELEASE_ID",
+    "app_name": "research_copilot",
+    "origin": "https://your-website-service.run.app",
+    "evidence_url": "https://your-evidence-service.run.app",
+    "model": "gemini-3.1-flash-lite",
+    "max_runs": 20,
+    "max_chats": 20
+  },
+  "memory_enabled": false,
+  "protocol_rag_enabled": false,
+  "analysis_enabled": false,
+  "prediction_enabled": false,
+  "training_enabled": false,
+  "phase5_user_ids": []
+}

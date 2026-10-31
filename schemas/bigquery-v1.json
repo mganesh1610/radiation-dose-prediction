@@ -1,0 +1,325 @@
+{
+  "schema_version": 1,
+  "tables": {
+    "studies": [
+      {
+        "name": "release_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "study_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "source_url",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "role",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "sample_groups": [
+      {
+        "name": "release_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "group_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "study_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "identity_status",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "samples": [
+      {
+        "name": "release_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "sample_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "study_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "group_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "sample_annotations": [
+      {
+        "name": "release_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "sample_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "dose_gy",
+        "type": "FLOAT",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "dose_status",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "time_after_exposure_hours",
+        "type": "FLOAT",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "organism",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "tissue",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "features": [
+      {
+        "name": "release_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "probe_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "gene_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "gene_namespace",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "expression_sets": [
+      {
+        "name": "release_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "expression_set_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "representation",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "scale",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "processing_scope",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "normalization_status",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "samples",
+        "type": "INTEGER",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "probes",
+        "type": "INTEGER",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "object",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "generation",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "sha256",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "split_members": [
+      {
+        "name": "release_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "split_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "sample_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "partition",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "model_runs": [
+      {
+        "name": "job_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "release_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "method",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "holdout_study",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "purpose",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "status",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "deployment_allowed",
+        "type": "BOOLEAN",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "train_samples",
+        "type": "INTEGER",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "validation_samples",
+        "type": "INTEGER",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "training_seconds",
+        "type": "FLOAT",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "artifact_manifest",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "model_metrics": [
+      {
+        "name": "job_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "metric",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "value",
+        "type": "FLOAT",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "unit",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "evaluation_scope",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ],
+    "predictions": [
+      {
+        "name": "job_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "sample_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "group_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "observed_gy",
+        "type": "FLOAT",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "predicted_gy",
+        "type": "FLOAT",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "evaluation_scope",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      }
+    ]
+  }
+}
