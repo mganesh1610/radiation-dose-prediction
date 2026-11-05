@@ -151,6 +151,8 @@ def test_completed_result_bound_to_request_and_never_deployed(env):
 
 
 def test_http_auth_csrf_pause_and_exact_approval(env,monkeypatch,tmp_path):
+    # Match the fixture job IDs without depending on the month the suite runs.
+    monkeypatch.setattr('dispatch_control.month_key',lambda now=None:MONTH)
     source,b=env;policy=tmp_path/'policy.json';policy.write_text(json.dumps(POLICY))
     monkeypatch.setenv('TRAINING_BRIDGE_ENABLED','true');monkeypatch.setenv('TRAINING_BRIDGE_POLICY',str(policy))
     def identity(headers):
@@ -160,6 +162,8 @@ def test_http_auth_csrf_pause_and_exact_approval(env,monkeypatch,tmp_path):
     h={'X-Test-User':'alice','X-Defender-Request':'1','Origin':'https://localhost'}
     assert client.get('/api/training/catalog').status_code==403
     assert client.post('/api/training/prepare',json=body(),headers={'X-Test-User':'alice'}).status_code==403
+    stale=client.post('/api/training/prepare',json=dict(body(),job_id='web_202609_'+'a'*32),headers=h)
+    assert stale.status_code==400 and 'current admission month' in stale.json['error']
     plan=client.post('/api/training/prepare',json=body(),headers=h);assert plan.status_code==200
     a=dict(body(),approval_sha256=plan.json['approval_sha256'])
     monkeypatch.setenv('TRAINING_ENABLED','false');assert client.post('/api/training/approve',json=a,headers=h).status_code==403

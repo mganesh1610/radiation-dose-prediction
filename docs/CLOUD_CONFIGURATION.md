@@ -44,9 +44,12 @@ access does not grant IAM rights. Train on the Mac, not inside request handlers.
 
 Firebase packaging accepts `--project` (or the environment setting) and deploys
 only the reviewed static allowlist. Vercel and Firebase copies do not expose the
-private API. The Cloudflare router selects a public origin at entry; it is not a
-backend proxy or a guarantee against provider outages. Existing application
-limits are operational guards, not cloud-provider billing caps.
+private API. The Cloudflare entry redirects directly to the Google Cloud app,
+including its research copilot. Google sign-in and the existing application
+allowlist remain required. Vercel and Firebase are separate static snapshots,
+not Cloudflare routing destinations. The Worker is not a backend proxy or an
+outage guarantee. Existing application limits are operational guards, not
+cloud-provider billing caps.
 
 The prediction API lazily loads the approved numeric bundle from `FROZEN_MODEL_DIR`
 (default `runtime/frozen`). `scripts/package_web.py` validates the source bundle

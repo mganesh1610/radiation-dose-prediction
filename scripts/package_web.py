@@ -7,6 +7,8 @@ import argparse
 ROOT=Path(__file__).resolve().parents[1]
 DEST=ROOT/'data/web_build'
 FILES=['scripts/frozen_inference.py','scripts/portable_model.py','scripts/prediction_service.py',
+       'app/static/analysis-workspace.js','app/static/analysis-workspace.css','app/static/analysis-scene.mjs','app/static/spatial-model.mjs',
+       'app/static/vendor/three/three.module.js','app/static/vendor/three/three.core.js','app/static/vendor/three/OrbitControls.js','app/static/vendor/three/LICENSE',
        'app/static/prediction-workflow.js','app/static/research-workflow.css','app/static/statistical-explorer.js','app/static/statistical-results.json',
        'app/static/assistant-engine.js','app/static/research-assistant.js','app/static/assistant-records.json','app/server.py','app/requirements.txt','app/Dockerfile','app/static/index.html',
        'app/static/development-explorer.js','app/static/development-explorer.css','app/static/development-results.json',

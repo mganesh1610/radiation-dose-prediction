@@ -2,21 +2,23 @@
 
 ## Open the live application
 
-**[Launch the research explorer →](https://prod.defender-asu.workers.dev/)**
+**[Launch the research workspace →](https://prod.defender-asu.workers.dev/)**
 
 Explore the datasets, PCA, clustered heatmaps, model comparisons and published
-findings in your browser. No local installation is needed for the public explorer.
+findings in your browser. The main workspace requires an approved Google sign-in;
+no local installation is needed.
 
-- [Direct public site](https://defender-research-public.vercel.app/)
-- [Backup public site](https://radiation-prediction-4ffe5.web.app/)
+- [Public read-only research snapshot](https://defender-research-public.vercel.app/)
+- [Alternate public snapshot](https://radiation-prediction-4ffe5.web.app/)
 - [Alternate entry links](https://prod.defender-asu.workers.dev/links)
-- [Private research workspace](https://defender-research-460004627518.us-west1.run.app/#assistant)
+- [Research copilot](https://defender-research-460004627518.us-west1.run.app/#assistant)
 
 Cloud-tool chat, uploads, predictions and Mac training require a separately
 approved Google sign-in. Repository access does not grant application access.
-The public site is a published research snapshot; its structured assistant and the
-authenticated multi-agent chatbot are different interfaces. Cloudflare selects a
-public origin when you open the entry link; it does not proxy private API traffic.
+The public snapshots remain available without application access; their structured
+assistant and the authenticated multi-agent chatbot are different interfaces.
+Cloudflare redirects directly to the Google Cloud application, where sign-in and
+access checks apply. It does not proxy API traffic or route to the static snapshots.
 
 **Prefer to run the code?** Start with [local setup](#local-setup). To provision
 your own infrastructure, follow [Google Cloud setup](docs/GOOGLE_CLOUD_SETUP.md).
@@ -31,8 +33,10 @@ authenticated Google ADK research copilot.
   probe-to-gene mapping, training-only feature selection and model export.
 - **Model comparison:** matched A–D neural strategies, classical regressors and
   exploratory clustering, with study holdouts and donor grouping.
-- **Scientific interface:** dataset filters, automatic PCA, hierarchical heatmaps,
-  correlations, dose responses, model cards and separate development/final views.
+- **Scientific interface:** dataset filters, automatic PCA, optional spatial
+  presentation, hierarchical heatmaps, correlations, quality review, clustering,
+  model cards and separate development/final views. Spatial height shows the
+  recorded dose; it is not a third PCA component or a model prediction.
 - **Agent system:** Research Coordinator and remote Evidence Specialist over A2A,
   controlled SQL, verified matrix retrieval/cache, managed Sessions, explicit
   preference memory and cited protocol retrieval.
@@ -72,6 +76,7 @@ node tests/test_public_data.cjs
 node tests/test_assistant_records.cjs
 node tests/test_heatmap_clustering.cjs
 node tests/test_analysis_autoload.cjs
+node --test tests/test_spatial_analysis.mjs
 ```
 
 Python modules run separately to avoid native PyTorch/XGBoost runtime collisions.

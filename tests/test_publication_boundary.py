@@ -44,6 +44,7 @@ def test_reviewed_runtime_and_documentation_paths_are_allowed():
         'agent_system/requirements-example.lock': 'pytest',
         'app/static/icons/example.svg': '<svg/>',
         'docs/examples/copilot-config.example.json': '{}',
+        'app/static/vendor/three/LICENSE': 'MIT License',
     })
 
 
@@ -63,7 +64,9 @@ def test_web_bundle_contains_imported_adapters_and_chat_assets():
     packager = load_source('package_web')
     for path in ('app/copilot_proxy.py', 'app/request_admission.py',
                  'app/startup_dependency.py', 'app/static/copilot-chat.js',
-                 'app/static/copilot-chat.css'):
+                 'app/static/copilot-chat.css', 'app/static/analysis-workspace.js',
+                 'app/static/analysis-workspace.css', 'app/static/analysis-scene.mjs',
+                 'app/static/spatial-model.mjs', 'app/static/vendor/three/LICENSE'):
         assert path in packager.FILES
         assert (ROOT / path).is_file()
     tree = ast.parse((ROOT / 'app/server.py').read_text())

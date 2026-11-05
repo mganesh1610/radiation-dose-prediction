@@ -15,6 +15,7 @@ ROOT_DIRS = {'app', 'scripts', 'schemas', 'tests', 'docs', 'agent_system'}
 SUFFIXES = {'.py', '.R', '.md', '.txt', '.json', '.jsonc', '.js', '.mjs', '.cjs',
             '.html', '.css', '.svg', '.LICENSE', '.toml', '.lock'}
 BINARY = {'app/static/assets/cell-hero.png', 'app/static/fonts/geist.woff2', 'app/static/fonts/ibm-plex-mono.woff2'}
+LICENSES = {'app/static/vendor/three/LICENSE'}
 RULES = {
     'private-key': rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----',
     'google-api-key': rb'AIza[0-9A-Za-z_-]{35}',
@@ -47,7 +48,7 @@ def audit(tree=None):
         if mode not in ('100644', '100755'):
             problems.append((path, 'non-regular-file'))
         if (path not in ROOT_FILES and (p.parts[0] not in ROOT_DIRS or
-            (p.suffix not in SUFFIXES and path not in BINARY and p.name != 'Dockerfile'))):
+            (p.suffix not in SUFFIXES and path not in BINARY and path not in LICENSES and p.name != 'Dockerfile'))):
             problems.append((path, 'outside-submission-allowlist'))
         if any(x in ('context', 'data', 'output', 'config', 'runtime', '.git', '.venv',
                      'node_modules', '__pycache__', '.vercel', '.wrangler')

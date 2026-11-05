@@ -30,7 +30,9 @@ FILES = {
     **{'static/' + n: 'app/public/' + n for n in
        ('public-data.js', 'public-results.js', 'public.css')},
     **{'static/' + n: 'app/static/' + n for n in
-       ('statistical-explorer.js','research-workflow.css','assistant-engine.js','research-assistant.js','style.css', 'workspace-design.css', 'explorer.css', 'explorer.js', 'heatmap-clustering.js', 'reviewer-results.js', 'reviewer-results.css', 'development-explorer.js', 'development-explorer.css', 'assets/cell-hero.png',
+       ('analysis-workspace.js','analysis-workspace.css','analysis-scene.mjs','spatial-model.mjs',
+        'vendor/three/three.module.js','vendor/three/three.core.js','vendor/three/OrbitControls.js','vendor/three/LICENSE',
+        'statistical-explorer.js','research-workflow.css','assistant-engine.js','research-assistant.js','style.css', 'workspace-design.css', 'explorer.css', 'explorer.js', 'heatmap-clustering.js', 'reviewer-results.js', 'reviewer-results.css', 'development-explorer.js', 'development-explorer.css', 'assets/cell-hero.png',
         'fonts/geist.woff2', 'fonts/geist.woff2.LICENSE',
         'fonts/ibm-plex-mono.woff2', 'fonts/ibm-plex-mono.woff2.LICENSE')},
 }

@@ -11,7 +11,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / 'scripts')]
-from build_public import DEST, DATASET, LocalRelease, Explorer, RESULT
+from build_public import DEST, DATASET, LocalRelease, Explorer, RESULT, FILES
 
 
 class PublicExportTests(unittest.TestCase):
@@ -26,8 +26,9 @@ class PublicExportTests(unittest.TestCase):
         for path in (ROOT/'app/static/index.html', DEST/'index.html'):
             html=path.read_text();page=Elements();page.feed(html)
             self.assertTrue(set(page.panels).issubset(page.ids), str(path))
-            self.assertIn('statistical-explorer',page.ids)
-            self.assertLess(html.index('/static/statistical-explorer.js'),html.index('/static/explorer.js'))
+            self.assertEqual(page.panels,['analysis-panel'] * 4 + ['clustering-explorer'])
+            self.assertNotIn('statistical-explorer',page.ids)
+            self.assertNotIn('/static/statistical-explorer.js',html)
 
     @classmethod
     def setUpClass(cls):
@@ -39,7 +40,11 @@ class PublicExportTests(unittest.TestCase):
         manifest = json.loads((ROOT / 'data/public-build-manifest.json').read_text())
         actual = {str(p.relative_to(DEST)): p for p in DEST.rglob('*') if p.is_file()}
         self.assertEqual(set(manifest), set(actual))
-        self.assertEqual(len(actual), 55)
+        # Thirty immutable result JSONs, publication metadata and robots, plus reviewed assets.
+        self.assertEqual(len(actual), 32 + len(FILES))
+        for name in ('analysis-workspace.js','analysis-workspace.css','analysis-scene.mjs','spatial-model.mjs',
+                     'vendor/three/three.module.js','vendor/three/three.core.js','vendor/three/OrbitControls.js','vendor/three/LICENSE'):
+            self.assertIn('static/' + name, actual)
         for name, path in actual.items():
             self.assertFalse(path.is_symlink())
             self.assertNotIn('context', name)
