@@ -2,7 +2,7 @@
 
 ## Open the live application
 
-**[Launch the research workspace →](https://prod.defender-asu.workers.dev/)**
+**[Launch the production research workspace →](https://defender-research-460004627518.us-west1.run.app/)**
 
 Explore the datasets, PCA, clustered heatmaps, model comparisons and published
 findings in your browser. The main workspace requires an approved Google sign-in;
@@ -10,15 +10,13 @@ no local installation is needed.
 
 - [Public read-only research snapshot](https://defender-research-public.vercel.app/)
 - [Alternate public snapshot](https://radiation-prediction-4ffe5.web.app/)
-- [Alternate entry links](https://prod.defender-asu.workers.dev/links)
+- [Public guest dashboard](https://prod.defender-asu.workers.dev/)
 - [Research copilot](https://defender-research-460004627518.us-west1.run.app/#assistant)
 
 Cloud-tool chat, uploads, predictions and Mac training require a separately
 approved Google sign-in. Repository access does not grant application access.
 The public snapshots remain available without application access; their structured
 assistant and the authenticated multi-agent chatbot are different interfaces.
-Cloudflare redirects directly to the Google Cloud application, where sign-in and
-access checks apply. It does not proxy API traffic or route to the static snapshots.
 
 **Prefer to run the code?** Start with [local setup](#local-setup). To provision
 your own infrastructure, follow [Google Cloud setup](docs/GOOGLE_CLOUD_SETUP.md).

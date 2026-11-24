@@ -1,20 +1,13 @@
 # Reviewer demonstration
 
-Share https://prod.defender-asu.workers.dev/ as the public entry link.
-It checks Vercel first and temporarily redirects to the Firebase backup if the
-Vercel check fails. Direct URLs remain https://defender-research-public.vercel.app/
-and https://radiation-prediction-4ffe5.web.app/. Keep both as submission backup
-links, also available at https://prod.defender-asu.workers.dev/links.
-Each public site links to the private Cloud Run training workspace. Both show
-reviewed snapshots, not newly submitted jobs.
+Open the [production research workspace](https://defender-research-460004627518.us-west1.run.app/) with an approved Google account.
+The [Analysis link](https://defender-research-460004627518.us-west1.run.app/#analysis) opens the analysis section directly.
 
-The router runs on Cloudflare Workers Free. It checks the homepage and publication
-manifest, with a two-second deadline per origin. Successful checks may be cached
-for 30 seconds in a Worker isolate; failed checks for five seconds. It does not
-continuously monitor already-open pages, proxy assets, or route training requests.
-The original Vercel URL does not gain failover; visitors must use the entry link.
-Use `/analysis` or `/#analysis` on the entry link to open that section.
-See [entry-router/README.md](entry-router/README.md) for validation and maintenance.
+Visitors without project access can explore the [guest dashboard](https://prod.defender-asu.workers.dev/).
+The [Vercel snapshot](https://defender-research-public.vercel.app/) and
+[Firebase snapshot](https://radiation-prediction-4ffe5.web.app/) provide
+read-only copies of published results. See the [entry-router guide](entry-router/README.md)
+for routing details.
 
 Invited reviewers sign in with their approved Google account, open Experiments,
 select a baseline and held-out development study, and choose **Train model**.

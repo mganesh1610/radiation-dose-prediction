@@ -1,6 +1,6 @@
 # Google Cloud setup
 
-Use the [live application](https://prod.defender-asu.workers.dev/) to review the
+Use the [production application](https://defender-research-460004627518.us-west1.run.app/) to review the
 existing release. This guide describes provisioning a separate deployment in your
 own project. It grants no access to the hosted research data.
 

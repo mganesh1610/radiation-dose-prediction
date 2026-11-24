@@ -1,9 +1,10 @@
 # Google Cloud entry router
 
-Share **https://prod.defender-asu.workers.dev/**. The Worker redirects directly to
-**https://defender-research-460004627518.us-west1.run.app/**, where Google Cloud
-handles sign-in and the existing authorized-user checks. The dashboard, Analysis,
-predictions and research copilot use that single application.
+Open the [production research workspace](https://defender-research-460004627518.us-west1.run.app/) with an approved Google
+account to use the dashboard, analysis, predictions and research copilot.
+
+The redirect behavior below describes the Worker implementation in this source
+release. The [hosted guest dashboard](https://prod.defender-asu.workers.dev/) also offers public research views.
 
 This replaces the earlier Vercel/Firebase public-viewer failover. Neither static
 hosting service is a routing destination. The optional `/links` page has only the
