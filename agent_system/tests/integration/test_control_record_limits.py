@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from research_agents.persistence.control_store import GcsControlStore,record_limit
 
-@pytest.mark.parametrize('key,limit',[('ledger.json',2_000_000),('tasks/run-fixture.json',1_000_000)])
+@pytest.mark.parametrize('key,limit',[('ledger.json',48_000_000),('tasks/run-fixture.json',1_000_000)])
 def test_record_at_limit_roundtrips_and_one_more_byte_fails_before_upload(key,limit):
  assert record_limit(key)==limit
  value={'payload':'x'*(limit-len(b'{"payload":""}'))};data=json.dumps(value,separators=(',',':')).encode()

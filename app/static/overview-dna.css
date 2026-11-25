@@ -1,0 +1,129 @@
+/* The private Overview expands to the workspace edges while its study collection keeps the usual gutters. */
+#page-overview {
+  --overview-gutter: 32px;
+  --overview-header-height: 72px;
+}
+body.workspace-system > main:has(#page-overview:not([hidden]) > .overview-hero) { max-width: none; }
+body.workspace-system main:has(#page-overview:not([hidden]) > .overview-hero) > header { margin-bottom: 0; }
+
+.overview-hero {
+  --cover-gutter: clamp(36px, 5.7vw, 112px);
+  --cover-paper: #f5f8ed;
+  --cover-mint: #d6ecbe;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-items: center;
+  min-height: max(400px, calc(100svh - var(--overview-header-height)));
+  margin-inline: calc(-1 * var(--overview-gutter));
+  padding: 0; border: 0; overflow: hidden;
+  background: #082124;
+  color: var(--cover-paper);
+}
+.dna-visual, .dna-visual picture, .dna-visual img, .dna-visual video {
+  position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+}
+.dna-visual { z-index: -2; pointer-events: none; }
+.dna-visual img, .dna-visual video { object-fit: cover; object-position: 65% 50%; }
+.dna-visual video { visibility: hidden; }
+.dna-visual video.has-frame { visibility: visible; }
+.overview-hero::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgb(3 19 23 / 88%), rgb(3 22 25 / 63%) 31%, transparent 70%),
+              linear-gradient(0deg, rgb(2 16 18 / 84%), transparent 25%);
+}
+.dna-intro {
+  position: relative; width: fit-content; max-width: 100%; padding: 80px var(--cover-gutter) 110px;
+}
+body.workspace-system #overview-title {
+  margin: 0; color: var(--cover-paper); font-family: Geist, sans-serif;
+  font-size: clamp(68px, 6.75vw, 132px); font-weight: 520;
+  line-height: .99; letter-spacing: -.064em;
+}
+#overview-title span { display: block; color: var(--cover-mint); font-weight: 380; }
+body.workspace-system .overview-hero #explore-datasets {
+  display: inline-flex; align-items: center; justify-content: center; gap: 24px;
+  min-height: 50px; width: auto; margin: clamp(26px, 3.5vh, 42px) 0 0;
+  padding: 0 22px; border: 1px solid transparent; border-radius: 999px;
+  background: var(--cover-mint); color: #153b31;
+  font: 600 15px/1.25 Geist, sans-serif; letter-spacing: -.015em;
+}
+.overview-hero #explore-datasets svg {
+  width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+body.workspace-system .overview-hero #explore-datasets:hover { background: #e6f6d1; }
+.dna-footer {
+  position: absolute; inset-inline: var(--cover-gutter); bottom: clamp(14px, 2.7vh, 32px);
+  display: flex; align-items: center; gap: 18px; min-height: 48px; padding-top: 10px;
+  border-top: 1px solid rgb(214 235 222 / 31%);
+}
+body.workspace-system .dna-footer #cell-hotspot {
+  display: inline-flex; align-items: center; gap: 9px; min-height: 44px;
+  padding: 0; border: 0; background: transparent; color: #f3f8ed;
+  font: 550 13px/1.3 Geist, sans-serif; cursor: pointer;
+}
+.dna-footer #cell-hotspot svg {
+  flex: none; width: 22px; height: 22px; fill: none; stroke: var(--cover-mint); stroke-width: 1.5;
+}
+.dna-caption { margin-inline-start: auto; color: #d4dfda; font: 400 12px/1.4 Geist, sans-serif; }
+body.workspace-system #dna-motion {
+  display: grid; flex: none; place-items: center; width: 44px; height: 44px;
+  padding: 0; border: 1px solid rgb(222 241 230 / 60%); border-radius: 50%;
+  background: rgb(7 30 31 / 55%); color: #f2f8ee; cursor: pointer;
+}
+body.workspace-system #dna-motion[hidden] { display: none; }
+body.workspace-system #dna-motion:hover { background: #244b43; }
+#dna-motion svg { width: 17px; height: 17px; fill: currentColor; }
+#dna-motion .dna-pause, #dna-motion.is-playing .dna-play { display: none; }
+#dna-motion.is-playing .dna-pause { display: inline; }
+body.workspace-system .overview-hero button:focus-visible { outline: 2px solid #fff9de; outline-offset: 4px; }
+/* The workspace already adds 24px of scroll padding to the document. */
+#page-overview:has(.overview-hero) #sources { scroll-margin-block-start: calc(var(--overview-header-height) - 24px); }
+
+@media (max-width: 1200px) { #page-overview { --overview-gutter: 24px; } }
+@media (max-width: 900px) { #page-overview { --overview-header-height: 158px; } }
+@media (max-width: 600px) { #page-overview { --overview-gutter: 18px; } }
+@media (max-aspect-ratio: 6/5) {
+  .overview-hero { align-items: end; --cover-gutter: clamp(24px, 6vw, 64px); }
+  .dna-visual img, .dna-visual video { object-position: 69% 50%; }
+  .overview-hero::before {
+    background: linear-gradient(0deg, #061c1e 0%, rgb(6 27 29 / 95%) 25%, rgb(5 26 28 / 83%) 44%, rgb(5 26 28 / 25%) 65%, transparent 82%);
+  }
+  .dna-intro { padding: 100px var(--cover-gutter) clamp(108px, 15svh, 158px); }
+  body.workspace-system #overview-title { font-size: clamp(60px, 12vw, 105px); }
+}
+@media (max-width: 500px) {
+  .dna-caption { display: none; }
+  .dna-footer #dna-motion { margin-inline-start: auto; }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+  .overview-hero { min-height: max(215px, calc(100svh - var(--overview-header-height))); --cover-gutter: clamp(22px, 4vw, 52px); }
+  .dna-intro { padding: 15px var(--cover-gutter) 60px; }
+  body.workspace-system #overview-title { font-size: clamp(44px, 5vw, 70px); }
+  body.workspace-system .overview-hero #explore-datasets { margin-top: 14px; min-height: 44px; }
+  .dna-footer { bottom: 5px; padding-top: 3px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dna-intro h1 { animation: overview-arrive .85s cubic-bezier(.16,1,.3,1) both; }
+  .dna-intro #explore-datasets { animation: overview-arrive .78s .09s cubic-bezier(.16,1,.3,1) both; }
+  .dna-intro #explore-datasets svg { transition: transform .22s ease-out; }
+  .dna-intro #explore-datasets:is(:hover,:focus-visible) svg { transform: translateY(3px); }
+  #sources.dna-arrival .source-heading { animation: overview-arrive .6s cubic-bezier(.16,1,.3,1) both; }
+  #sources.dna-arrival .collection-summary { animation: overview-arrive .7s .04s cubic-bezier(.16,1,.3,1) both; }
+  @supports (animation-timeline: view()) {
+    .overview-hero { view-timeline-name: --dna-cover; view-timeline-axis: block; }
+    .dna-visual {
+      animation: overview-depth linear both; animation-timeline: --dna-cover;
+      animation-range: exit 0% exit 100%;
+    }
+  }
+}
+@keyframes overview-arrive {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes overview-depth {
+  from { transform: translateY(0); }
+  to { transform: translateY(9%); }
+}

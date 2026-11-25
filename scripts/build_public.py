@@ -15,31 +15,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / 'scripts')]
+from public_site_assets import FILES, encode
 from analysis_service import Explorer
 from app.server import DATASET
+from training_contract import COMBINED_DATASET
 from build_reviewer_results import build_payload
 from build_development_explorer import build_payload as build_development
 
 DEST = ROOT / 'data/public_web'
 EVIDENCE = ROOT / 'context/cloud/vercel-v1'
 CORE = ROOT / 'data/cloud_exports' / ('core_' + DATASET['sha256'][:16]) / 'core.npz'
-RESULT = Path(os.environ.get('DEFENDER_PUBLIC_RESULT', ROOT / 'data/reviewed_result/result.json'))
-FILES = {
-    'index.html': 'app/public/index.html',
-    'vercel.json': 'app/public/vercel.json',
-    **{'static/' + n: 'app/public/' + n for n in
-       ('public-data.js', 'public-results.js', 'public.css')},
-    **{'static/' + n: 'app/static/' + n for n in
-       ('analysis-workspace.js','analysis-workspace.css','analysis-scene.mjs','spatial-model.mjs',
-        'vendor/three/three.module.js','vendor/three/three.core.js','vendor/three/OrbitControls.js','vendor/three/LICENSE',
-        'statistical-explorer.js','research-workflow.css','assistant-engine.js','research-assistant.js','style.css', 'workspace-design.css', 'explorer.css', 'explorer.js', 'heatmap-clustering.js', 'reviewer-results.js', 'reviewer-results.css', 'development-explorer.js', 'development-explorer.css', 'assets/cell-hero.png',
-        'fonts/geist.woff2', 'fonts/geist.woff2.LICENSE',
-        'fonts/ibm-plex-mono.woff2', 'fonts/ibm-plex-mono.woff2.LICENSE')},
-}
-
-
-def encode(value):
-    return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+RESULT = Path(os.environ.get('DEFENDER_PUBLIC_RESULT', ROOT / 'data/experiments/combined-engineering-v2/GSE8917/elastic_net/result.json'))
 
 
 def sha(value):
@@ -76,16 +62,16 @@ def public_analysis(a):
 
 def public_experiments(result):
     if (result['method'], result['holdout_study'], result['purpose'], result['train_samples'],
-            result['validation_samples']) != ('elastic_net', 'GSE8917', 'engineering_smoke', 120, 25):
+            result['validation_samples'], result.get('refit_samples')) != ('elastic_net', 'GSE8917', 'engineering_smoke', 542, 25, 567):
         raise ValueError('The reviewed engineering run changed')
-    fields = ('method', 'holdout_study', 'purpose', 'train_samples', 'validation_samples', 'metrics')
+    fields = ('method', 'holdout_study', 'purpose', 'train_samples', 'validation_samples', 'refit_samples', 'metrics')
     rows = [{k: row[k] for k in ('sample_id', 'group_id', 'observed_gy', 'predicted_gy')}
             for row in result['predictions']]
     return dict(schema_version=1, runs=[dict(
         run_id='elastic-net-gse8917-engineering', label='Elastic Net',
-        release_id='core_' + DATASET['sha256'][:16],
+        release_id=COMBINED_DATASET['object'].split('/')[3],
         result={**{k: result[k] for k in fields}, 'predictions': rows},
-        methods='Preprocessing fitted on the two training studies; GSE8917 held out. Fixed engineering settings. Donor-balanced errors.',
+        methods='GSE8917 held out for scoring. The validation fit used 120 whole-blood and 422 WBC profiles. The saved model used all 567 profiles.',
         limitations='One engineering check, not final model selection or locked-test evaluation. No clinical prediction model is published.')])
 
 
@@ -120,9 +106,10 @@ def build(published_date, evidence_dir=EVIDENCE):
     bundle = {'data/' + version + '/' + k: v for k, v in bundle.items()}
     bundle['data/publication.json'] = encode(dict(
         schema_version=1, published_date=published_date, data_path='/data/' + version,
-        profiles=145, analysis_combinations=24, public_runs=1,
+        profiles=catalogue['profiles'], eligible_development_profiles=development['eligible_profiles'],
+        analysis_combinations=24, public_runs=1,
         release_id=catalogue['release_id'], locked_test_included=False,
-        final_evaluation=dict(release_id=final_results['release_id'],profiles=52,donors=12,status='completed_consumed',model_cards=8)))
+        final_evaluation=dict(release_id=final_results['release_id'],profiles=52,donors=12,status='completed_consumed',model_cards=len(final_results['model_cards']),evaluated_date=final_results['evaluated_date'])))
     bundle['robots.txt'] = b'User-agent: *\nDisallow: /\n'
     for target, source in FILES.items():
         path = ROOT / source

@@ -22,6 +22,9 @@ class ReviewerResultsTests(unittest.TestCase):
     def test_published_errors_match_independent_donor_arithmetic(self):
         with (EVAL/'donor-metrics.tsv').open() as f:
             rows=list(csv.DictReader(f,delimiter='\t'))
+        combined = Path(__file__).resolve().parents[1] / 'output/retrospective_gb_wbc_2026-11-14/donor-metrics.csv'
+        with combined.open() as f:
+            rows.extend(r for r in csv.DictReader(f) if r['model'] == 'gradient_boosting_wb_wbc')
         for card in self.payload['model_cards']:
             for score in card['scores']:
                 donors=[r for r in rows if r['model']==card['id'] and int(r['seed'])==score['seed']]
@@ -33,11 +36,15 @@ class ReviewerResultsTests(unittest.TestCase):
     def test_all_frozen_versions_and_correct_primary_roles(self):
         cards=self.payload['model_cards']
         self.assertEqual([c['id'] for c in cards],list(ORDER))
-        self.assertEqual(sum(len(c['scores']) for c in cards),18)
+        self.assertEqual(sum(len(c['scores']) for c in cards),21)
         for card in cards:
             first=card['scores'][0]
             self.assertEqual(first['seed'],card['primary_seed'])
             self.assertEqual(first['seed_role'],'untuned' if card['id']=='median_null' else 'primary')
+        self.assertEqual(self.payload['evaluated_date'], '2026-11-22')
+        self.assertEqual(self.payload['model_versions'], 21)
+        combined = next(c for c in cards if c['id'] == 'gradient_boosting_wb_wbc')
+        self.assertEqual((combined['core_profiles'], combined['auxiliary_profiles']), (145, 422))
         self.assertFalse(self.payload['live_prediction_enabled'])
         self.assertEqual(self.payload['status'],'completed_consumed')
         self.assertTrue(all(not c['reject'] and c['holm_adjusted_p']==1.0 for c in self.payload['comparisons']))

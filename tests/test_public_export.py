@@ -15,18 +15,33 @@ from build_public import DEST, DATASET, LocalRelease, Explorer, RESULT, FILES
 
 
 class PublicExportTests(unittest.TestCase):
-    def test_analysis_tabs_have_real_panels_in_both_sites(self):
+    def test_workspace_tabs_have_real_panels_in_both_sites(self):
         class Elements(HTMLParser):
             def __init__(self):
-                super().__init__(); self.ids=set(); self.panels=[]
+                super().__init__()
+                self.ids = set()
+                self.views = {}
+                self.tablist_stack = []
             def handle_starttag(self, tag, attrs):
                 a=dict(attrs)
                 if 'id' in a:self.ids.add(a['id'])
-                if a.get('role')=='tab':self.panels.append(a['aria-controls'])
+                if tag == 'div':
+                    parent = self.tablist_stack[-1] if self.tablist_stack else None
+                    owner = a['aria-label'] if a.get('role') == 'tablist' else parent
+                    self.tablist_stack.append(owner)
+                if a.get('role') == 'tab':
+                    self.views.setdefault(self.tablist_stack[-1], []).append(a['aria-controls'])
+            def handle_endtag(self, tag):
+                if tag == 'div':
+                    self.tablist_stack.pop()
         for path in (ROOT/'app/static/index.html', DEST/'index.html'):
             html=path.read_text();page=Elements();page.feed(html)
-            self.assertTrue(set(page.panels).issubset(page.ids), str(path))
-            self.assertEqual(page.panels,['analysis-panel'] * 4 + ['clustering-explorer'])
+            self.assertEqual(page.views, {
+                'Analysis view': ['analysis-panel'] * 4 + ['clustering-explorer'],
+                'Experiments': ['reviewer-results', 'development-comparisons', 'engineering-demo'],
+            }, str(path))
+            for panels in page.views.values():
+                self.assertTrue(set(panels).issubset(page.ids), str(path))
             self.assertNotIn('statistical-explorer',page.ids)
             self.assertNotIn('/static/statistical-explorer.js',html)
 
@@ -62,7 +77,7 @@ class PublicExportTests(unittest.TestCase):
         payload=json.loads((self.folder/'research-results.json').read_text())
         self.assertEqual(payload,json.loads((ROOT/'data/reviewer_release/research-results.json').read_text()))
         self.assertFalse(payload['live_prediction_enabled'])
-        self.assertEqual(len(payload['model_cards']),8)
+        self.assertEqual(len(payload['model_cards']),9)
         html = (DEST / 'index.html').read_text()
         for absent in ('train-form', 'id="train"', 'id="worker"', 'id="jobs"', '/static/app.js'):
             self.assertNotIn(absent, html)

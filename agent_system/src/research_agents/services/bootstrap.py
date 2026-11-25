@@ -48,7 +48,7 @@ class Components:
         self.store=GcsControlStore(p['control_bucket'],'copilot/v1/'+self.config.workspace+'/',
             client=storage.Client(project=p['project'],credentials=self.credentials))
         self.ledger=Ledger(self.store,self.config.workspace,
-            max_runs=self.config.max_runs,max_chats=self.config.max_chats)
+            max_runs=self.config.max_runs,max_chats=self.config.max_chats,team_demo=True)
         self.memberships=Memberships(self.policy,self.store)
         self.access=AccessPolicy(self.memberships.grant)
         self.guard=AgentGuard(self.ledger,self.access,self.config.release_id,

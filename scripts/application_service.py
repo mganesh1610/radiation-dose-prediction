@@ -5,7 +5,7 @@ code in its request handler. This module does not host an HTTP service itself.
 """
 import json
 from cloud_io import digest, encode, PREFIX
-from training_contract import METHODS, PRESETS, CORE, validate_job, identifier
+from training_contract import METHODS, PRESETS, CORE, validate_job, identifier, job_request
 
 
 class ApplicationService:
@@ -21,11 +21,13 @@ class ApplicationService:
                                      'C':'frozen_research_model_separate_from_engineering_jobs','D':'frozen_research_model_separate_from_engineering_jobs'},
                 'prediction_available':False}
 
-    def create_job(self,request):
+    def create_job(self,request,*,admitted_dataset=None):
         if set(request)!={'job_id','method','holdout_study'}: raise ValueError('Unexpected request fields')
         if request['method'] not in METHODS: raise ValueError('Unsupported method')
-        job={**request,'schema_version':1,'purpose':'engineering_smoke','dataset':self.release['dataset'],
-             'parameters':PRESETS[request['method']]}
+        dataset=self.release['dataset'] if admitted_dataset is None else admitted_dataset
+        if dataset not in [self.release['dataset'],*self.release.get('previous',[])]:
+            raise ValueError('Job belongs to another release')
+        job=job_request(request,dataset)
         validate_job(job)
         job_id=self.queue.submit(job)
         return {'job_id':job_id,'worker':'local_mac','status':self.get_job(job_id)['status']}
@@ -33,9 +35,10 @@ class ApplicationService:
     def get_job(self,job_id):
         identifier(job_id)
         state,_=self.cloud.read_json(PREFIX+'jobs/'+job_id+'.json')
-        if state['request']['dataset']!=self.release['dataset']: raise ValueError('Job belongs to another release')
+        if state['request']['dataset'] not in [self.release['dataset'],*self.release.get('previous',[])]: raise ValueError('Job belongs to another release')
         return {'job_id':job_id,'status':state['status'],'stage':state.get('stage'),
                 'method':state['request']['method'],'attempt':state['attempt'],
+                'job_version':state['request']['schema_version'],'release_id':state['request']['dataset']['object'].split('/')[3],
                 'purpose':state['request']['purpose'],'prediction_available':False}
 
     def results(self,job_id):

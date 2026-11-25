@@ -3,16 +3,16 @@
  const get=id=>document.getElementById(id), make=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
  const colors={GSE102971:'#24775b',GSE8917:'#589b9d',GSE65292:'#a8c9b1'};
  const titles={pca:'Principal component analysis',heatmap:'Gene expression heatmap',correlation:'Gene-to-gene correlation',qc:'Expression quality review'};
- let catalog=null,selected='GSE102971',result=null,activeView=new URLSearchParams(location.search).get('analysis')==='clustering'?'clustering':'pca',loading=false,visibleRows=[];
+ const linkedView=new URLSearchParams(location.search).get('analysis');
+ let catalog=null,selected='GSE102971',result=null,activeView=['clustering','heatmap','correlation'].includes(linkedView)?linkedView:'pca',loading=false,visibleRows=[];
  const memory=new Map(), heatmapCache=new WeakMap();
- let initialAttempted=false, heatmapDisplay=null;
+ let initialAttempted=false, heatmapDisplay=null, fitMatrix=null;
  const published=Boolean(window.defenderPublic);
  // Presentation is optional: a missing/failed renderer must not interrupt the existing analysis flow.
  function presentAnalysis(){try{window.defenderAnalysisView?.update({result,view:activeView});}catch(error){console.warn('The spatial presentation is unavailable; the measured 2D view remains available.',error);}}
  async function call(path,body){if(published)return window.defenderPublic.read(path,body);const response=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json','X-Defender-Request':'1'}:{},body:body?JSON.stringify(body):undefined});let data;try{data=await response.json();}catch{throw Error('Your sign-in may have expired. Reload the page to sign in again.');}if(!response.ok)throw Error(data.error||`Request failed (${response.status})`);return data;}
  function download(data,name,type='application/json'){const url=URL.createObjectURL(new Blob([type==='application/json'?JSON.stringify(data,null,2):data],{type}));const a=make('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
- get('engineering-demo').addEventListener('toggle',()=>{if(get('engineering-demo').open)window.defenderTraining.ensure();});
- function route(){let name=location.hash.slice(1)||'overview';if(!['overview','datasets','analysis','experiments','predictions','assistant'].includes(name))name='overview';for(const p of document.querySelectorAll('.page'))p.hidden=p.id!=='page-'+name;for(const a of document.querySelectorAll('[data-route]')){const active=a.dataset.route===name;a.classList.toggle('selected',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}get('breadcrumb').textContent='Workspace / '+name[0].toUpperCase()+name.slice(1);document.title='Defender · '+name[0].toUpperCase()+name.slice(1);if(get('snapshot-note'))get('snapshot-note').hidden=name==='experiments';if(name==='experiments'){window.defenderReviewer.ensure();if(new URLSearchParams(location.search).get('comparison')==='development')get('development-comparisons').open=true;if(new URLSearchParams(location.search).get('workspace')==='training')get('engineering-demo').open=true;if(get('engineering-demo').open)window.defenderTraining.ensure();}if(name==='analysis'){renderAnalysis();ensureAnalysis();}window.scrollTo({top:0,behavior:'instant'});}
+ function route(){let name=location.hash.slice(1)||'overview';if(!['overview','datasets','analysis','experiments','predictions','assistant'].includes(name))name='overview';for(const p of document.querySelectorAll('.page'))p.hidden=p.id!=='page-'+name;for(const a of document.querySelectorAll('[data-route]')){const active=a.dataset.route===name;a.classList.toggle('selected',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}get('breadcrumb').textContent='Workspace / '+name[0].toUpperCase()+name.slice(1);document.title='Defender · '+name[0].toUpperCase()+name.slice(1);if(get('snapshot-note'))get('snapshot-note').hidden=name==='experiments';if(name==='experiments')window.defenderExperiments.enter();else window.defenderReviewer?.dismiss?.();if(name==='analysis'){renderAnalysis();ensureAnalysis();}window.scrollTo({top:0,behavior:'instant'});}
  window.addEventListener('hashchange',route);
  document.querySelector('.skip-link')?.addEventListener('click',e=>{e.preventDefault();get('main-content').focus();get('main-content').scrollIntoView({behavior:'instant',block:'start'});});
  function selectStudy(id){selected=id;const study=catalog.studies.find(s=>s.study_id===id);for(const radio of document.querySelectorAll('input[name="selected-study"]'))radio.checked=radio.value===id;get('selected-heading').textContent=study.heading;get('selected-counts').textContent=`${study.profiles} selected profiles · ${study.groups} study-local donor groups`;for(const button of get('ribbon').children)button.setAttribute('aria-pressed',String(button.dataset.study===id));}
@@ -39,60 +39,144 @@
  function table(headers,rows){const t=get('analysis-table'),head=make('thead'),body=make('tbody'),hr=make('tr');for(const s of headers)hr.append(make('th',s));head.append(hr);for(const row of rows){const tr=make('tr');for(const cell of row)tr.append(make('td',cell===null?'Missing':cell));body.append(tr);}t.replaceChildren(head,body);}
  function plotPca(){
   const svg=get('analysis-chart'),mobile=matchMedia('(max-width:580px)').matches,W=mobile?340:650,H=370,L=52,R=W-18,T=24,B=318,rows=result.pca.scores;
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);let xmin=Math.min(...rows.map(r=>r[0])),xmax=Math.max(...rows.map(r=>r[0])),ymin=Math.min(...rows.map(r=>r[1])),ymax=Math.max(...rows.map(r=>r[1]));const xp=(xmax-xmin||1)*.08,yp=(ymax-ymin||1)*.08;xmin-=xp;xmax+=xp;ymin-=yp;ymax+=yp;const x=v=>L+(v-xmin)/(xmax-xmin)*(R-L),y=v=>B-(v-ymin)/(ymax-ymin)*(B-T);
+  const guide=window.defenderPcaOutliers?.forResult(result);
+  const extent=guide?rows.concat(...guide.outlines.values()):rows;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);let xmin=Math.min(...extent.map(r=>r[0])),xmax=Math.max(...extent.map(r=>r[0])),ymin=Math.min(...extent.map(r=>r[1])),ymax=Math.max(...extent.map(r=>r[1]));const xp=(xmax-xmin||1)*.08,yp=(ymax-ymin||1)*.08;xmin-=xp;xmax+=xp;ymin-=yp;ymax+=yp;const x=v=>L+(v-xmin)/(xmax-xmin)*(R-L),y=v=>B-(v-ymin)/(ymax-ymin)*(B-T);
   for(let i=0;i<=4;i++){const xx=xmin+(xmax-xmin)*i/4,yy=ymin+(ymax-ymin)*i/4;svgNode('line',{x1:L,x2:R,y1:y(yy),y2:y(yy),stroke:'#e4eae5'});svgNode('text',{x:L-8,y:y(yy)+4,'text-anchor':'end'},yy.toFixed(0));svgNode('text',{x:x(xx),y:B+23,'text-anchor':'middle'},xx.toFixed(0));}
-  for(let i=0;i<rows.length;i++){const s=result.samples[i];const p=svgNode('circle',{cx:x(rows[i][0]),cy:y(rows[i][1]),r:4.8,fill:colors[s.study_id],stroke:'#fff','stroke-width':.8,opacity:.85});clickable(p,`${s.sample_id} · ${s.study_id} · ${s.group_id} · ${s.dose_gy} Gy · PC1 ${rows[i][0].toFixed(3)}, PC2 ${rows[i][1].toFixed(3)}`,i);}
+  if(guide)for(const [study,outline] of guide.outlines){
+   const path=outline.map(([pc1,pc2],i)=>(i?'L':'M')+x(pc1)+' '+y(pc2)).join(' ')+' Z';
+   svgNode('path',{d:path,fill:'none',stroke:colors[study],'stroke-width':1.6,'data-pca-boundary':study,'aria-hidden':'true','pointer-events':'none'});
+  }
+  for(let i=0;i<rows.length;i++){const s=result.samples[i];const p=svgNode('circle',{cx:x(rows[i][0]),cy:y(rows[i][1]),r:4.8,fill:colors[s.study_id],stroke:'#fff','stroke-width':.8,opacity:.85});clickable(p,`${s.sample_id} · ${s.study_id} · ${s.group_id} · ${s.dose_gy} Gy · PC1 ${rows[i][0].toFixed(3)}, PC2 ${rows[i][1].toFixed(3)}${guide?' · '+window.defenderPcaOutliers.status(guide.distances[i]):''}`,i);}
   svgNode('text',{x:(L+R)/2,y:H-10,'text-anchor':'middle'},`PC1 (${(result.pca.explained_variance_ratio[0]*100).toFixed(1)}%)`);svgNode('text',{x:L,y:13},`PC2 (${(result.pca.explained_variance_ratio[1]*100).toFixed(1)}%)`);
   legend([...new Set(result.samples.map(s=>s.study_id))].map(s=>[s,colors[s]]));get('analysis-caption').textContent='One point per profile. Axes show variance explained within this displayed cohort; repeated donor profiles are not independent observations.';
-  table(['Profile','Study','Group','Dose (Gy)','PC1','PC2'],result.samples.map((s,i)=>[s.sample_id,s.study_id,s.group_id,s.dose_gy,...rows[i].map(v=>v.toFixed(4))]));
+  const headers=['Profile','Study','Group','Dose (Gy)','PC1','PC2'];
+  if(guide)headers.push('PCA outlier review','Squared distance (D²)');
+  table(headers,result.samples.map((s,i)=>{
+   const row=[s.sample_id,s.study_id,s.group_id,s.dose_gy,...rows[i].map(v=>v.toFixed(4))];
+   if(guide)row.push(window.defenderPcaOutliers.status(guide.distances[i]),guide.distances[i]?.toFixed(3)??'—');
+   return row;
+  }));
  }
  function ramp(v,lo,hi){if(v===null)return '#d9ddda';const t=Math.max(0,Math.min(1,(v-lo)/(hi-lo||1))),a=t<.5?[58,111,146]:[248,250,247],b=t<.5?[248,250,247]:[164,65,79],u=t<.5?t*2:(t-.5)*2;return `rgb(${a.map((n,i)=>Math.round(n+(b[i]-n)*u)).join(',')})`;}
- function dendrogram(tree, axis, order, start, step, baseline, span){
+ function dendrogram(tree, axis, order){
   if(!tree?.children)return;
-  const positions=new Map(order.map((id,i)=>[id,start+(i+.5)*step])),maximum=tree.distance||1;
+  const positions=new Map(order.map((id,i)=>[id,i+.5])),maximum=tree.distance||1;
   const group=svgNode('g',{'class':'heatmap-dendrogram','data-axis':axis,'aria-hidden':'true'});
   function draw(node){
-   if(!node.children)return {position:positions.get(node.id),depth:baseline};
-   const [a,b]=node.children.map(draw),depth=baseline-span*node.distance/maximum;
+   if(!node.children)return {position:positions.get(node.id),depth:1};
+   const [a,b]=node.children.map(draw),depth=1-node.distance/maximum;
    const d=axis==='profiles'?`M${a.position},${a.depth}V${depth}H${b.position}V${b.depth}`:`M${a.depth},${a.position}H${depth}V${b.position}H${b.depth}`;
    svgNode('path',{d,fill:'none',stroke:'#548479','stroke-width':1,'vector-effect':'non-scaling-stroke'},undefined,group);
    return {position:(a.position+b.position)/2,depth};
   }
   draw(tree);
+  return group;
  }
  function plotHeat(){
   const scale=get('heat-scale').value,mode=get('heat-cluster').value,m=result.heatmap[scale],genes=result.heatmap.gene_ids,N=result.samples.length;
   let prepared=heatmapCache.get(result);
   if(!prepared){prepared=window.defenderHeatmap.prepare(result.heatmap.zscore);heatmapCache.set(result,prepared);}
   const order=window.defenderHeatmap.order(prepared,mode,genes.length,N),clusterGenes=['both','genes'].includes(mode),clusterProfiles=['both','profiles'].includes(mode);
-  const W=800,L=150,T=clusterProfiles?100:34,rh=22,H=T+genes.length*rh+48,cw=(W-L-14)/N;
-  get('analysis-chart').setAttribute('viewBox',`0 0 ${W} ${H}`);get('analysis-chart').style.minWidth='680px';
+  const svg=get('analysis-chart');
   svgNode('title',{},`Expression heatmap: ${mode==='none'?'original ordering':mode+' clustered'}, ${genes.length} genes and ${N} profiles`);
-  if(clusterProfiles)dendrogram(prepared.profiles,'profiles',order.columns,L,cw,T-22,62);
-  if(clusterGenes)dendrogram(prepared.genes,'genes',order.rows,T,rh,78,65);
+  const columnTree=clusterProfiles&&dendrogram(prepared.profiles,'profiles',order.columns);
+  const rowTree=clusterGenes&&dendrogram(prepared.genes,'genes',order.rows);
+  const strip=svgNode('g',{'shape-rendering':'crispEdges'}),matrix=svgNode('g',{'shape-rendering':'crispEdges'});
+  const labels=order.rows.map(i=>svgNode('text',{'text-anchor':'end',dy:'.35em'},genes[i]));
   const vals=m.flat().filter(Number.isFinite),lo=scale==='zscore'?-2:Math.min(...vals),hi=scale==='zscore'?2:Math.max(...vals),tableRows=[];
-  order.columns.forEach((j,col)=>{const strip=svgNode('rect',{x:L+col*cw,y:T-17,width:cw,height:10,fill:colors[result.samples[j].study_id]});svgNode('title',{},result.samples[j].study_id,strip);});
+  order.columns.forEach((j,col)=>{
+   const segment=svgNode('rect',{x:col,y:0,width:1,height:1,fill:colors[result.samples[j].study_id]},undefined,strip);
+   svgNode('title',{},result.samples[j].study_id,segment);
+  });
   order.rows.forEach((i,row)=>{
-   svgNode('text',{x:L-8,y:T+row*rh+15,'text-anchor':'end'},genes[i]);
    order.columns.forEach((j,col)=>{
-    const v=m[i][j],sample=result.samples[j],cell=svgNode('rect',{x:L+col*cw,y:T+row*rh,width:cw+.1,height:rh-.5,fill:ramp(v,lo,hi),'data-point':1,'data-gene':genes[i],'data-sample':sample.sample_id});
+    const v=m[i][j],sample=result.samples[j],cell=svgNode('rect',{x:col,y:row,width:1,height:1,fill:ramp(v,lo,hi),'data-point':1,'data-gene':genes[i],'data-sample':sample.sample_id},undefined,matrix);
     clickable(cell,`NCBI GeneID ${genes[i]} · ${sample.sample_id} · ${sample.study_id} · ${sample.dose_gy} Gy · ${scale==='zscore'?'z-score':'log2'} ${v===null?'missing':v.toFixed(3)}`,j);
     tableRows.push([genes[i],sample.sample_id,sample.study_id,sample.dose_gy,v===null?null:v.toFixed(4)]);
    });
   });
-  svgNode('text',{x:L,y:H-25},clusterProfiles?'Profiles ordered by expression similarity →':'Profiles ordered by study, dose, then accession →');
-  svgNode('text',{x:L,y:H-6},'NCBI GeneID labels · select a cell to inspect its profile');
+  const geneAxis=svgNode('text',{'text-anchor':'end'},'GeneID');
+  const profileAxis=svgNode('text',{},clusterProfiles?'Profiles by similarity →':'Profiles by study, dose & ID →');
+  svgNode('title',{},clusterProfiles?'Profiles ordered by expression similarity':'Profiles ordered by study, dose and accession',profileAxis);
+  const labelWidth=Math.max(6,...genes.map(id=>String(id).length))*7+8;
+  // Keep text in screen pixels. Only the data grid, study strip and branches stretch on resize.
+  fitMatrix=(width,height)=>{
+   if(width<=0||height<=0)return;
+   const treeWidth=rowTree?Math.min(68,width*.09):0,treeHeight=columnTree?Math.min(60,height*.14):0;
+   const left=4+treeWidth+labelWidth,top=4+treeHeight+14;
+   const cellWidth=Math.max(1,width-left-4)/N,rowHeight=Math.max(1,height-top-22)/genes.length;
+   svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
+   const place=(group,x,y,sx,sy)=>group&&group.setAttribute('transform',`translate(${x} ${y}) scale(${sx} ${sy})`);
+   place(matrix,left,top,cellWidth,rowHeight);
+   place(strip,left,top-9,cellWidth,6);
+   place(columnTree,left,4,cellWidth,treeHeight);
+   place(rowTree,4,top,treeWidth,rowHeight);
+   labels.forEach((label,row)=>{
+    label.setAttribute('x',left-5);
+    label.setAttribute('y',top+(row+.5)*rowHeight);
+    label.style.fontSize=Math.min(12,rowHeight*.92)+'px';
+   });
+   geneAxis.setAttribute('x',left-5);
+   profileAxis.setAttribute('x',left);
+   for(const axis of [geneAxis,profileAxis])axis.setAttribute('y',height-5);
+  };
+  fitMatrix(svg.clientWidth||800,svg.clientHeight||440);
   legend([[`${lo.toFixed(1)}${scale==='zscore'?' or lower':''}`,ramp(lo,lo,hi)],[scale==='zscore'?'0':((lo+hi)/2).toFixed(1),ramp((lo+hi)/2,lo,hi)],[`${hi.toFixed(1)}${scale==='zscore'?' or higher':''}`,ramp(hi,lo,hi)],['Missing','#d9ddda'],...new Set(result.samples.map(sample=>sample.study_id))].map(item=>typeof item==='string'?[item,colors[item]]:item));
   get('analysis-caption').textContent=`Top ${genes.length} variable genes. ${scale==='zscore'?'Colors saturate at ±2 row SD; exported values remain unclipped.':'Colors show log2 expression.'} ${mode==='none'?'Original order.':`Average-linkage hierarchical clustering of ${mode==='both'?'genes and profiles':mode}, using Euclidean distance on gene row z-scores for these ${genes.length} genes. Dendrogram branches show merge distances within each axis; the two axes have separate scales.`} Missing cells stay gray. ${mode!=='none'&&prepared.missing?`${prepared.missing} missing values use their gene median for distances only. `:''}${mode!=='none'&&prepared.emptyGenes?`${prepared.emptyGenes} genes have no observed values and contribute zero to distances. `:''}Study colors appear above the columns. Clusters are descriptive, not evidence of dose response or model accuracy.`;
   heatmapDisplay={mode,scale,method:mode==='none'?null:'average_linkage',distance:mode==='none'?null:'euclidean_on_gene_row_zscores',genes:order.rows.map(i=>genes[i]),profiles:order.columns.map(j=>result.samples[j].sample_id),distance_only_median_imputations:mode==='none'?0:prepared.missing,empty_genes:mode==='none'?0:prepared.emptyGenes,original_values_preserved:true};
   get('analysis-provenance').textContent=JSON.stringify({...JSON.parse(get('analysis-provenance').textContent),heatmap_display:heatmapDisplay},null,2);
   table(['GeneID','Profile','Study','Dose (Gy)',scale==='zscore'?'Row z-score':'Log2'],tableRows);
  }
- function plotCorrelation(){const genes=result.correlation.gene_ids,m=result.correlation.pearson,N=genes.length,L=72,T=65,c=34,W=L+N*c+15,H=T+N*c+15;get('analysis-chart').setAttribute('viewBox',`0 0 ${W} ${H}`);get('analysis-chart').style.minWidth='480px';const rows=[];genes.forEach((gene,i)=>{svgNode('text',{x:L-8,y:T+i*c+22,'text-anchor':'end'},gene);svgNode('text',{x:L+i*c+22,y:T-10,transform:`rotate(-55 ${L+i*c+22} ${T-10})`},gene);m[i].forEach((v,j)=>{const n=svgNode('rect',{x:L+j*c,y:T+i*c,width:c-1,height:c-1,fill:ramp(v,-1,1),'data-point':1});clickable(n,`GeneIDs ${gene} × ${genes[j]} · Pearson r ${v===null?'undefined':v.toFixed(4)} · ${result.correlation.paired_counts[i][j]} paired profiles`);if(i<=j)rows.push([gene,genes[j],v===null?null:v.toFixed(4),result.correlation.paired_counts[i][j]]);});});legend([['−1',ramp(-1,-1,1)],['0',ramp(0,-1,1)],['+1',ramp(1,-1,1)],['Undefined','#d9ddda']]);get('analysis-caption').textContent='Pairwise-complete Pearson correlations across displayed profiles. Study/dose patterns and donor repeats can drive correlation. These are descriptive coefficients, without p-values.';table(['GeneID A','GeneID B','Pearson r','Paired profiles'],rows);}
+ function plotCorrelation(){
+  const {gene_ids:genes,pearson,paired_counts:pairedCounts}=result.correlation;
+  const svg=get('analysis-chart'),rows=[];
+  svgNode('title',{},`Pearson correlation matrix for ${genes.length} genes`);
+  const matrix=svgNode('g',{'shape-rendering':'crispEdges',stroke:'#f8faf5','stroke-width':1});
+  const rowLabels=genes.map(gene=>svgNode('text',{'text-anchor':'end','dominant-baseline':'central'},gene));
+  const columnLabels=genes.map(gene=>svgNode('text',{'dominant-baseline':'central'},gene));
+  genes.forEach((gene,row)=>{
+   pearson[row].forEach((value,column)=>{
+    const pairs=pairedCounts[row][column],coefficient=value===null?null:value.toFixed(4);
+    const cell=svgNode('rect',{x:column,y:row,width:1,height:1,fill:ramp(value,-1,1),'data-point':1,'vector-effect':'non-scaling-stroke'},undefined,matrix);
+    clickable(cell,`GeneIDs ${gene} × ${genes[column]} · Pearson r ${coefficient??'undefined'} · ${pairs} paired profiles`);
+    if(row<=column)rows.push([gene,genes[column],coefficient,pairs]);
+   });
+  });
+  const digits=Math.max(1,...genes.map(gene=>String(gene).length));
+  fitMatrix=(width,height)=>{
+   if(width<=0||height<=0||!genes.length)return;
+   const fontSize=Math.min(12,Math.min(width,height)/(genes.length+digits+1));
+   const labelMargin=Math.ceil(digits*fontSize*.75)+8;
+   const available=Math.min(width,height)-labelMargin-4;
+   const vertical=available/genes.length<24;
+   const rightMargin=vertical?4:Math.ceil(labelMargin/2);
+   const side=Math.max(1,Math.min(width-labelMargin-rightMargin,height-labelMargin-4));
+   const cellSize=side/genes.length;
+   const left=labelMargin+(width-labelMargin-rightMargin-side)/2;
+   const top=labelMargin+(height-labelMargin-4-side)/2;
+   svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
+   matrix.setAttribute('transform',`translate(${left} ${top}) scale(${cellSize})`);
+   genes.forEach((_,index)=>{
+    const center=(index+.5)*cellSize;
+    rowLabels[index].setAttribute('x',left-6);
+    rowLabels[index].setAttribute('y',top+center);
+    columnLabels[index].setAttribute('transform',`translate(${left+center} ${top-6}) rotate(${vertical?-90:-55})`);
+    rowLabels[index].style.fontSize=columnLabels[index].style.fontSize=fontSize+'px';
+   });
+  };
+  fitMatrix(svg.clientWidth||480,svg.clientHeight||480);
+  legend([['−1',ramp(-1,-1,1)],['0',ramp(0,-1,1)],['+1',ramp(1,-1,1)],['Undefined','#d9ddda']]);
+  get('analysis-caption').textContent='Pairwise-complete Pearson correlations across displayed profiles. Study/dose patterns and donor repeats can drive correlation. These are descriptive coefficients, without p-values.';
+  table(['GeneID A','GeneID B','Pearson r','Paired profiles'],rows);
+ }
  function plotQc(){const rows=result.qc.quantiles,W=650,H=355,L=52,T=25,B=300,R=W-15;get('analysis-chart').setAttribute('viewBox',`0 0 ${W} ${H}`);get('analysis-chart').style.minWidth='620px';const low=Math.min(...rows.map(r=>r[0]))-1,high=Math.max(...rows.map(r=>r[4]))+1,y=v=>B-(v-low)/(high-low)*(B-T),step=(R-L)/rows.length;for(let i=0;i<=4;i++){const v=low+(high-low)*i/4;svgNode('line',{x1:L,x2:R,y1:y(v),y2:y(v),stroke:'#e4eae5'});svgNode('text',{x:L-7,y:y(v)+4,'text-anchor':'end'},v.toFixed(1));}rows.forEach((r,i)=>{const xx=L+(i+.5)*step,s=result.samples[i];svgNode('line',{x1:xx,x2:xx,y1:y(r[0]),y2:y(r[4]),stroke:colors[s.study_id]});const box=svgNode('rect',{x:xx-step*.3,y:y(r[3]),width:step*.6,height:Math.max(.5,y(r[1])-y(r[3])),fill:colors[s.study_id],'data-point':1});svgNode('line',{x1:xx-step*.35,x2:xx+step*.35,y1:y(r[2]),y2:y(r[2]),stroke:'#19382f'});clickable(box,`${s.sample_id} · ${s.study_id} · median log2 ${r[2].toFixed(3)} · ${result.qc.missing_by_sample[i]} missing selected-gene values`,i);});svgNode('text',{x:L,y:14},'Log2 expression');svgNode('text',{x:L,y:340},'Profiles ordered by study, dose, then accession →');legend([...new Set(result.samples.map(s=>s.study_id))].map(s=>[s,colors[s]]));get('analysis-caption').textContent='Each profile: 25th–75th percentile box, median line and 5th–95th percentile whiskers across selected genes. Whiskers are not an outlier threshold. No samples removed.';table(['Profile','Study','Missing genes','P05','Q1','Median','Q3','P95'],result.samples.map((s,i)=>[s.sample_id,s.study_id,result.qc.missing_by_sample[i],...rows[i].map(v=>v.toFixed(3))]));}
- function renderAnalysis(){const clustering=activeView==='clustering';get('core-analysis').hidden=clustering;get('clustering-explorer').hidden=!clustering;get('analysis-title').textContent=titles[activeView]||'Clustering';for(const b of document.querySelectorAll('[data-view]')){b.setAttribute('aria-selected',String(b.dataset.view===activeView));b.tabIndex=b.dataset.view===activeView?0:-1;}if(clustering){presentAnalysis();window.defenderDevelopment.ensureClusters();return;}get('analysis-panel').setAttribute('aria-labelledby','tab-'+activeView);if(!result){presentAnalysis();return;}get('analysis-content').hidden=false;get('analysis-empty').hidden=true;get('download-analysis').hidden=false;get('heatmap-controls').hidden=activeView!=='heatmap';get('analysis-chart').replaceChildren();get('analysis-chart').style.minWidth='';get('analysis-chart').setAttribute('aria-label',`${titles[activeView]}, ${result.samples.length} measured profiles`);get('point-detail').textContent='Select a point or cell for its measured values. Use arrow keys to move through the chart.';get('analysis-summary').textContent=`${result.samples.length} profiles · ${result.genes_used.toLocaleString()} genes · ${result.options.study==='all'?'all core studies':result.options.study}`;get('analysis-description').textContent=result.options.representation==='quantile'?'Equal-study quantile normalization, then log2. Reference: all 145 core profiles.':'Per-array background correction, then log2. No between-array normalization.';get('analysis-provenance').textContent=JSON.stringify({analysis_id:result.analysis_id,version:result.analysis_version,source:result.source,options:result.options,purpose:result.purpose,...result.provenance},null,2);({pca:plotPca,heatmap:plotHeat,correlation:plotCorrelation,qc:plotQc})[activeView]();presentAnalysis();}
+ function renderAnalysis(){fitMatrix=null;const clustering=activeView==='clustering';get('core-analysis').hidden=clustering;get('clustering-explorer').hidden=!clustering;get('analysis-title').textContent=titles[activeView]||'Clustering';for(const b of document.querySelectorAll('[data-view]')){b.setAttribute('aria-selected',String(b.dataset.view===activeView));b.tabIndex=b.dataset.view===activeView?0:-1;}if(clustering){presentAnalysis();window.defenderDevelopment.ensureClusters();return;}get('analysis-panel').setAttribute('aria-labelledby','tab-'+activeView);if(!result){presentAnalysis();return;}get('analysis-content').hidden=false;get('analysis-empty').hidden=true;get('download-analysis').hidden=false;get('heatmap-controls').hidden=activeView!=='heatmap';get('analysis-chart').replaceChildren();get('analysis-chart').style.minWidth='';get('analysis-chart').setAttribute('aria-label',`${titles[activeView]}, ${result.samples.length} measured profiles`);get('point-detail').textContent='Select a point or cell for its measured values. Use arrow keys to move through the chart.';get('analysis-summary').textContent=`${result.samples.length} profiles · ${result.genes_used.toLocaleString()} genes · ${result.options.study==='all'?'all core studies':result.options.study}`;get('analysis-description').textContent=result.options.representation==='quantile'?'Equal-study quantile normalization, then log2. Reference: all 145 core profiles.':'Per-array background correction, then log2. No between-array normalization.';get('analysis-provenance').textContent=JSON.stringify({analysis_id:result.analysis_id,version:result.analysis_version,source:result.source,options:result.options,purpose:result.purpose,...result.provenance},null,2);({pca:plotPca,heatmap:plotHeat,correlation:plotCorrelation,qc:plotQc})[activeView]();presentAnalysis();}
  const tabs=[...document.querySelectorAll('[data-view]')];for(const b of tabs){b.onclick=()=>{activeView=b.dataset.view;renderAnalysis();ensureAnalysis();};b.onkeydown=e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();let i=tabs.indexOf(b);i=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[i].click();tabs[i].focus();}};}
- get('heat-scale').onchange=renderAnalysis;get('heat-cluster').onchange=renderAnalysis;matchMedia('(max-width:580px)').addEventListener('change',()=>{if(result)renderAnalysis();});
+ if(window.ResizeObserver){
+  new window.ResizeObserver(([entry])=>fitMatrix?.(entry.contentRect.width,entry.contentRect.height)).observe(get('chart-scroll'));
+ }
+ get('heat-scale').onchange=renderAnalysis;get('heat-cluster').onchange=renderAnalysis;matchMedia('(max-width:580px)').addEventListener('change',()=>{if(result&&!fitMatrix)renderAnalysis();});
  for(const id of ['analysis-study','representation','gene-count'])get(id).onchange=()=>get('analysis-status').textContent=published?'Settings changed. Show analysis to load the matching published result.':'Settings changed. Run analysis to update the plotted result.';
  function analysisOptions(){return {study:get('analysis-study').value,representation:get('representation').value,genes:Number(get('gene-count').value)};}
  function ensureAnalysis(){

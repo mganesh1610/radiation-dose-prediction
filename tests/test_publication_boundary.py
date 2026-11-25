@@ -5,6 +5,7 @@ import importlib.util
 import io
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 from unittest.mock import patch
 
@@ -15,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def load_source(name):
     spec = importlib.util.spec_from_file_location(name, ROOT / 'scripts' / (name + '.py'))
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    with patch.object(sys, "path", [str(ROOT / "scripts"), *sys.path]):
+        spec.loader.exec_module(module)
     return module
 
 
@@ -79,3 +81,9 @@ def test_web_bundle_contains_imported_adapters_and_chat_assets():
         if not path.endswith('-results.json') and not path.endswith('assistant-records.json'):
             assert (ROOT / path).is_file(), path
         assert not any(p in Path(path).parts for p in ('context', 'data', 'config'))
+
+def test_only_pinned_media_and_the_guest_schema_are_accepted():
+    assert staged_audit({'app/entry-router/guest-schema.sql': 'CREATE TABLE example (id TEXT)'})
+    assert not staged_audit({'app/entry-router/unreviewed.sql': 'SELECT 1'})
+    assert not staged_audit({'app/static/assets/overview-dna-wide.mp4': 'different bytes'})
+    assert not staged_audit({'app/static/assets/other.mp4': 'arbitrary media'})

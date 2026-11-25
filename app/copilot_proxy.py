@@ -73,7 +73,7 @@ def register_copilot(app, *, token_provider=None, opener=None):
         parsed=urlsplit(base)
         if parsed.scheme!='https' or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment:
             raise RuntimeError('Invalid protected backend configuration')
-        if not re.fullmatch(r'(status|memories(?:/(response_style|display_format))?|chats|chats/chat-[a-f0-9]{32}(?:/messages)?|runs/run-[a-f0-9]{32}(?:/(events|receipt|cancel|artifacts/plot-[a-f0-9]{32}))?)',path):
+        if not re.fullmatch(r'(status|quota|memories(?:/(response_style|display_format))?|chats|chats/chat-[a-f0-9]{32}(?:/messages)?|runs/run-[a-f0-9]{32}(?:/(events|receipt|cancel|artifacts/plot-[a-f0-9]{32}))?)',path):
             return jsonify(error='Route not found'),404
         g.cloud_stage = 'copilot_service_token'
         token_started=time.perf_counter()

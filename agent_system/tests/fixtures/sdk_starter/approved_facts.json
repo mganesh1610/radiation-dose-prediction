@@ -8,7 +8,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#datasets"
+          "url": "https://prod.defender-asu.workers.dev/#datasets"
         }
       ],
       "terms": [
@@ -25,7 +25,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#datasets"
+          "url": "https://prod.defender-asu.workers.dev/#datasets"
         }
       ],
       "terms": [
@@ -41,7 +41,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#datasets"
+          "url": "https://prod.defender-asu.workers.dev/#datasets"
         }
       ],
       "terms": [
@@ -56,7 +56,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#experiments"
+          "url": "https://prod.defender-asu.workers.dev/#experiments"
         }
       ],
       "terms": [
@@ -73,7 +73,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#experiments"
+          "url": "https://prod.defender-asu.workers.dev/#experiments"
         }
       ],
       "terms": [
@@ -92,7 +92,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#experiments"
+          "url": "https://prod.defender-asu.workers.dev/#experiments"
         }
       ],
       "terms": [
@@ -108,7 +108,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#experiments"
+          "url": "https://prod.defender-asu.workers.dev/#experiments"
         }
       ],
       "terms": [
@@ -124,7 +124,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#predictions"
+          "url": "https://prod.defender-asu.workers.dev/#predictions"
         }
       ],
       "terms": [
@@ -142,7 +142,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#analysis"
+          "url": "https://prod.defender-asu.workers.dev/#analysis"
         }
       ],
       "terms": [
@@ -159,7 +159,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#experiments"
+          "url": "https://prod.defender-asu.workers.dev/#experiments"
         }
       ],
       "terms": [
@@ -177,7 +177,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#experiments"
+          "url": "https://prod.defender-asu.workers.dev/#experiments"
         }
       ],
       "terms": [
@@ -194,7 +194,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#predictions"
+          "url": "https://prod.defender-asu.workers.dev/#predictions"
         }
       ],
       "terms": [
@@ -210,7 +210,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#analysis"
+          "url": "https://prod.defender-asu.workers.dev/#analysis"
         }
       ],
       "terms": [
@@ -226,7 +226,7 @@
       "sources": [
         {
           "label": "Project evidence",
-          "url": "https://defender-research-public.vercel.app/#analysis"
+          "url": "https://prod.defender-asu.workers.dev/#analysis"
         }
       ],
       "terms": [

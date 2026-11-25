@@ -9,28 +9,32 @@ import hashlib
 import json
 from pathlib import Path
 
+from research_catalog import COMBINED_BOOSTING, EVALUATED_DATE, MODEL_NAMES
+
 ROOT = Path(__file__).resolve().parents[1]
 EVAL = ROOT / 'context/locked-evaluation/v1'
 MODELS = ROOT / 'data/models/final-selection-v2'
 RESULT_FREEZE = 'a93f0e43f65229d989dbf9763739d75d55f82e5feaf3005db2f2b83a66029277'
 MODEL_FREEZE = '3b051050b682601006fc965d01ca871aa175799863a48ee73fee314ddd66e725'
-ORDER = ('A', 'B', 'C', 'D', 'elastic_net', 'pls', 'gradient_boosting', 'median_null')
+ORIGINAL_ORDER = ('A', 'B', 'C', 'D', 'elastic_net', 'pls', 'gradient_boosting', 'median_null')
+ORDER = (*ORIGINAL_ORDER[:-1], COMBINED_BOOSTING, 'median_null')
+COMBINED_FREEZE = 'a32bb1f0a35e5404536c96b4cc7bdf70ceac4289dbdd435cdedf2469f002dd83'
 DESCRIPTIONS = {
-    'A': ('Core neural regression', 'Neural',
+    'A': ('Neural',
           'Two hidden layers (64 and 16 ReLU units) learn dose from the core whole-blood cohort.'),
-    'B': ('Pretrain then fine-tune', 'Neural',
+    'B': ('Neural',
           'The same neural architecture first learns binary exposure from auxiliary profiles, then learns core dose. Auxiliary numeric doses are not used.'),
-    'C': ('Multitask neural regression', 'Neural',
+    'C': ('Neural',
           'The shared neural encoder learns core dose and binary exposure on core and auxiliary profiles. Auxiliary numeric doses are not used.'),
-    'D': ('Weighted neural regression', 'Neural',
+    'D': ('Neural',
           'The same neural architecture learns numerical dose from core and auxiliary profiles with equal total core and auxiliary loss mass.'),
-    'elastic_net': ('Elastic Net', 'Reference',
+    'elastic_net': ('Reference',
                     'Linear dose regression with combined L1 and L2 penalties. Core-only reference model.'),
-    'pls': ('Partial least squares', 'Reference',
+    'pls': ('Reference',
             'Core-only regression using 15 latent components of the selected rank features.'),
-    'gradient_boosting': ('Gradient boosting', 'Reference',
+    'gradient_boosting': ('Reference',
                          'Core-only boosted regression trees: 300 estimators with maximum depth 2.'),
-    'median_null': ('Training median', 'Null baseline',
+    'median_null': ('Null baseline',
                    'Always returns the ordinary core-profile training median, 4.45 Gy. No gene-expression features or auxiliary fitting.')}
 LIMITATIONS = [
     'Research only; not clinically validated. No model is automatically selected for deployment.',
@@ -50,7 +54,7 @@ MODEL_NOTES = {
     'D': 'Uses auxiliary 0/2 Gy numeric labels. This does not expand the supported prediction domain to auxiliary tissues or conditions.',
     'elastic_net': 'Small overall signed bias masks control error and underprediction at 4 Gy.',
     'pls': 'Preserved negative predictions and study-transfer error; latent components are not independent biological mechanisms.',
-    'gradient_boosting': 'Lowest observed primary-model MAE here is descriptive. Positive overall bias remains, and no new confirmatory superiority test or deployment promotion follows.',
+    'gradient_boosting': 'This whole-blood-only model had the lowest primary MAE among the original eight models. Positive overall bias remains, and no new confirmatory superiority test or deployment promotion follows.',
     'median_null': 'An untuned comparison anchor. The 4.45 Gy training median was never replaced by this test cohort’s median.'}
 
 
@@ -77,6 +81,30 @@ def verify_freeze(freeze, expected, root, key):
     return len(entries)
 
 
+def combined_card(reference):
+    path = ROOT / 'context/retrospective-gb-wbc-2026-11-14/results.json'
+    if digest(path) != COMBINED_FREEZE:
+        raise ValueError('Combined boosting result integrity check failed')
+    record = read(path)
+    rows = [r for r in record['metrics'] if r['model'] == COMBINED_BOOSTING]
+    if [r['seed'] for r in rows] != [20261002, 20261003, 20261004] or any(
+            (r['profiles'], r['donors']) != (52, 12) for r in rows):
+        raise ValueError('Unexpected combined boosting evaluation')
+    score_fields = ('seed', 'seed_role', 'donor_mae', 'donor_rmse', 'donor_bias')
+    scores = [{**{key: row[key] for key in score_fields},
+               'mae_ci': dict(low=row['mae_ci_low'], high=row['mae_ci_high'], confidence=0.95)}
+              for row in rows]
+    slice_fields = ('stratum', 'profiles', 'donors', 'donor_mae', 'donor_rmse', 'donor_bias')
+    slices = [{key: row[key] for key in slice_fields} for row in record['strata']
+              if row['model'] == COMBINED_BOOSTING and row['seed'] == reference['primary_seed']]
+    return {**reference, 'id': COMBINED_BOOSTING, 'name': MODEL_NAMES[COMBINED_BOOSTING],
+            'family': 'Retrospective comparison', 'auxiliary_profiles': 422,
+            'description': 'Boosted regression trees trained on 145 whole-blood and 422 white blood cell (WBC) profiles.',
+            'scores': scores, 'primary_strata': slices,
+            'selection': 'Used the fixed whole-blood boosting settings and primary seed with the expanded training pool.',
+            'interpretation': 'Evaluated retrospectively on the same 52 previously tested GSE90909 profiles. Independent validation is still needed.'}
+
+
 def build_payload(evaluation=EVAL, models=MODELS):
     evaluation, models = Path(evaluation), Path(models)
     count = verify_freeze(evaluation/'result-freeze.json', RESULT_FREEZE, evaluation, 'sha256')
@@ -91,7 +119,7 @@ def build_payload(evaluation=EVAL, models=MODELS):
         slices = list(csv.DictReader(f, delimiter='\t'))
     metric_keys = ('seed', 'seed_role', 'donor_mae', 'donor_rmse', 'donor_bias')
     cards = []
-    for name in ORDER:
+    for name in ORIGINAL_ORDER:
         selected = [a for a in index if a['model'] == name and a['seed_role'] != 'sensitivity']
         if len(selected) != 1:
             raise ValueError('Missing or ambiguous primary model')
@@ -115,21 +143,24 @@ def build_payload(evaluation=EVAL, models=MODELS):
                    **{k:int(r[k]) for k in ('profiles','donors')},
                    **{k:float(r[k]) for k in ('donor_mae','donor_rmse','donor_bias')}}
                   for r in slices if r['model'] == name and int(r['seed']) == artifact['seed']]
-        label, family, description = DESCRIPTIONS[name]
-        cards.append(dict(id=name, name=label, family=family, description=description,
+        family, description = DESCRIPTIONS[name]
+        cards.append(dict(id=name, name=MODEL_NAMES[name], family=family, description=description,
             primary_seed=artifact['seed'], representation='none' if is_null else params['representation'],
             selected_genes=0 if is_null else 500, core_profiles=train_count, auxiliary_profiles=aux_count,
             settings=params, scores=scores, primary_strata=strata, interpretation=MODEL_NOTES[name]))
+    reference = next(c for c in cards if c['id'] == 'gradient_boosting')
+    cards.insert(-1, combined_card(reference))
+    count += 1
     tests = []
     for name in 'BCD':
         c = comparisons[name]
         tests.append(dict(comparator=name, mean_difference=c['mean_difference'],
             raw_p=c['raw_p'], holm_adjusted_p=c['holm_adjusted_p'], reject=c['holm_reject'],
             simultaneous_ci={k:c['simultaneous_t_ci'][k] for k in ('low','high','confidence')}))
-    payload = dict(schema_version=1, release_id='locked-evaluation-2026-10-03-v1',
-        evaluated_date='2026-10-03', status='completed_consumed', purpose='saved_research_results',
+    payload = dict(schema_version=2, release_id='gse90909-evaluation-' + EVALUATED_DATE + '-v2',
+        evaluated_date=EVALUATED_DATE, status='completed_consumed', purpose='saved_research_results',
         live_prediction_enabled=False, study='GSE90909', profiles=52, donors=12, dose_min_gy=0, dose_max_gy=4,
-        controls=11, high_dose_profiles=6, model_versions=18, model_cards=cards,
+        controls=11, high_dose_profiles=6, model_versions=sum(len(c['scores']) for c in cards), model_cards=cards,
         primary_finding='Model A superiority was not supported.',
         comparison_method='A minus comparator donor MAE; negative favors A. Three one-sided paired t tests (12 donors, df=11), Holm-adjusted at 0.05. The displayed simultaneous t intervals have 98.333% coverage per comparison. Non-rejection does not establish equivalence.',
         comparisons=tests,
@@ -137,7 +168,7 @@ def build_payload(evaluation=EVAL, models=MODELS):
         interval_definition='95% descriptive donor-percentile bootstrap intervals, 10,000 shared resamples, seed 20261003; conditional on fixed models and this dose design.',
         preprocessing='Raw microarray background correction and technical masks; frozen core-training probe eligibility and quantile reference; one log2 transform and fixed probe-to-gene aggregation. Training-only imputation, dose-informed feature selection (500 of 9,131 eligible genes in the full fit), and feature scaling. Rank models use the saved within-profile rank representation. No test-cohort normalization fit.',
         target_scaling='Dose standardization was fitted on core training profiles and inverted to Gy. Time after exposure is an eligibility condition, not a dose normalization factor.',
-        training='145 core profiles across three studies and 30 study-local donor groups. B–D additionally use 422 auxiliary profiles across three studies and 211 groups. Auxiliary label-free references were fitted on their complete training cohorts. These groups are not independently verified globally unique people.',
+        training='145 core profiles across three studies and 30 study-local donor groups. B–D and combined gradient boosting also use 422 WBC profiles across three studies and 211 groups. Auxiliary label-free references were fitted on their complete training cohorts. These groups are not independently verified globally unique people.',
         selection='Eight candidates per fitted family, matched five donor folds; preprocessing refitted inside each fold. Settings and primary seed were frozen before the final test. Sensitivity seeds do not add independent donors or replace the primary result.',
         measurement_note='Approximately 30 million source expression measurements are not independent training samples. The curated development release contains 567 eligible profiles (145 core + 422 auxiliary).',
         limitations=LIMITATIONS)
@@ -146,7 +177,7 @@ def build_payload(evaluation=EVAL, models=MODELS):
 
 
 def markdown(payload):
-    text = ['# Defender model cards', '', 'Version: '+payload['release_id'], '',
+    text = ['# Defender model cards', '', 'Last evaluated '+payload['evaluated_date'], '', 'Version: '+payload['release_id'], '',
             '**Saved research results only. Final test completed and consumed. No model is automatically selected or recommended by this result snapshot.**', '',
             payload['primary_finding'], '', '## Evaluation and intended use', '',
             'Academic review of frozen radiation-dose regression experiments, not clinical triage or treatment.', '',
@@ -155,7 +186,7 @@ def markdown(payload):
             payload['preprocessing'], '', payload['target_scaling'], '', payload['selection'], '',
             payload['metric_definition'], '', payload['interval_definition'], '', payload['comparison_method'], '']
     for card in payload['model_cards']:
-        text += ['## '+card['id']+' · '+card['name'], '', card['description'], '',
+        text += ['## '+card['name'], '', card['description'], '',
                  f"Features: {card['selected_genes']} genes; representation: {card['representation']}. Core training: {card['core_profiles']} profiles; auxiliary training: {card['auxiliary_profiles']} profiles.", '',
                  'Frozen settings: '+json.dumps(card['settings'], sort_keys=True)+'.', '',
                  '| Seed / role | Donor MAE (95% interval) | Donor RMSE | Signed bias |',
@@ -185,7 +216,7 @@ def main():
         target=args.output/name
         if target.is_symlink():raise ValueError('Refusing symlink output')
         target.write_bytes(content)
-    summary=dict(source_files_verified=checked, model_cards=8, model_versions=18, new_fits=0, cloud_changes=0,
+    summary=dict(source_files_verified=checked, model_cards=len(payload['model_cards']), model_versions=payload['model_versions'], new_fits=0, cloud_changes=0,
         files={name:dict(bytes=len(content),sha256=hashlib.sha256(content).hexdigest()) for name,content in files.items()})
     (args.evidence/'export-verification.json').write_bytes(encode(summary))
     print(json.dumps(summary))

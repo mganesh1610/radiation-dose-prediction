@@ -1,6 +1,351 @@
-#reviewer-results{padding-top:10px}.reviewer-heading{padding:0 0 24px}.reviewer-heading h1{font-size:clamp(32px,3.7vw,56px);font-weight:650;letter-spacing:-1.8px;margin:0 0 8px;line-height:1.12}.reviewer-cohort{font-size:clamp(14px,1.6vw,21px);margin:0;color:var(--muted);line-height:1.6}.reviewer-comparison{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px}.reviewer-chart{background:#14352f;color:#eef6f1;border-radius:8px;padding:26px 16px 18px;min-width:0}.reviewer-chart h2{font-size:23px;font-weight:600;margin:0 12px 4px}.reviewer-chart>p{font-size:15px;margin:0 12px 8px;color:#d4e2dd}.forest-scroll{overflow-x:auto;border-radius:3px}.forest-inner{min-width:570px}.forest-column-heading,.neural-row{display:grid;grid-template-columns:142px minmax(0,1fr) 208px;gap:12px;align-items:center}.forest-column-heading{padding:6px 12px;color:#d4e2dd;font-family:'IBM Plex Mono',monospace;font-size:12px}.neural-row{padding:0 12px;background:transparent;color:#eef6f1;border:0;border-bottom:1px solid #ffffff20;border-radius:0;width:100%;min-height:48px;font-size:14px;text-align:left;font-weight:400;white-space:normal}.neural-row svg{height:48px;width:100%;overflow:visible}.forest-grid{stroke:#8fa7a155;stroke-dasharray:2 4;stroke-width:1}.forest-ci{stroke:#d5e4df;stroke-width:1.4;vector-effect:non-scaling-stroke}.forest-dot{fill:#d5e4df}.neural-row[aria-pressed=true]{background:#28564b;color:#a0f0d3;border-radius:5px;border-color:transparent}.neural-row[aria-pressed=true] .forest-ci{stroke:#a0f0d3}.neural-row[aria-pressed=true] .forest-dot{fill:#a0f0d3}.neural-row:hover{background:#244d43}.neural-value{font-family:'IBM Plex Mono',monospace;font-size:13px;white-space:nowrap}.reviewer-axis{margin:0 232px 0 166px;border-top:1px solid #a9bbb1;display:flex;justify-content:space-between;color:#d4e2dd;font-size:12px;padding-top:8px}.reviewer-axis-label{text-align:center;font-size:12px;color:#d4e2dd;margin:12px 232px 2px 166px}.reviewer-passport{background:#eaf3ec;border-radius:8px;padding:22px 18px;display:flex;flex-direction:column;gap:12px}.reviewer-passport h2{font-size:18px;font-weight:600;margin:0 0 6px}.passport-body{background:#dfede5;border-radius:6px;padding:18px;flex:1}.passport-body>span{font-size:58px;font-weight:650;line-height:1.1;letter-spacing:-2px}.passport-body h3{font-size:20px;font-weight:500;line-height:1.35;margin:0 0 16px;padding-bottom:18px;border-bottom:1px solid #c0d3c8}.passport-body dl{margin:0;font-size:14px}.passport-body dl>div{margin:0 0 14px}.passport-body dt{color:var(--muted);font-size:12px;margin-bottom:3px}.passport-body dd{margin:0;line-height:1.5}.passport-body>p{font-size:14px;margin:0}.reviewer-passport button{width:100%;padding:12px 8px;font-size:14px;min-height:46px}.reviewer-finding{margin-top:22px;padding:20px 24px;border-radius:8px;background:#faf2df;border-left:3px solid #c78a1c;font-size:16px}.reviewer-finding strong{font-weight:600}.reviewer-finding p{font-size:14px;color:#596760;margin:7px 0 0;line-height:1.5}.reviewer-interval-note{font-size:13px;color:var(--muted);margin:20px 0}.reviewer-details-row{border-top:1px solid var(--line);font-size:14px}.reviewer-details-row details{margin:0;padding:0}.reviewer-details-row summary{padding:14px 0;min-height:44px}.reviewer-prose{max-width:850px;font-size:15px;line-height:1.7}.reviewer-prose h3{font-size:17px;letter-spacing:-.2px;margin:24px 0 7px}.reviewer-prose p{color:var(--muted);margin:0 0 15px}.reviewer-prose li{margin-bottom:12px;color:var(--muted)}#reviewer-card-dialog{max-width:800px;width:calc(100% - 40px);max-height:85vh;border:1px solid var(--line);border-radius:12px;padding:32px;background:var(--canvas);color:var(--ink);overflow:auto;overscroll-behavior:contain}#reviewer-card-dialog::backdrop{background:#132e2780}#reviewer-card-dialog .dialog-close{position:sticky;top:0;float:right;background:var(--canvas)}#reviewer-card-title{clear:both;padding-top:15px;font-size:28px}#reviewer-card-dialog td{white-space:normal}#reviewer-card-dialog .eyebrow{padding-right:90px}#reviewer-metrics-table td,#reviewer-comparisons-table td{font-variant-numeric:tabular-nums}#engineering-demo{margin-top:24px;border-top:1px solid var(--line);padding-top:2px}#engineering-demo>summary{font-size:14px;font-weight:550;margin:16px 0}#engineering-demo[open]>summary{margin-bottom:24px}.neural-row:focus-visible,.forest-scroll:focus-visible{outline:3px solid #a0f0d3;outline-offset:-3px}#reviewer-status:empty{display:none}@media(max-width:1200px){.reviewer-comparison{grid-template-columns:minmax(0,1fr) 230px}.reviewer-chart{padding-left:12px;padding-right:12px}.forest-inner{min-width:490px}.forest-column-heading,.neural-row{grid-template-columns:110px minmax(0,1fr) 185px;gap:8px}.neural-value{font-size:12px}.neural-row{font-size:13px}.reviewer-axis{margin-left:130px;margin-right:205px}.reviewer-axis-label{margin-left:130px;margin-right:205px}.reviewer-passport{padding:18px 14px}.passport-body{padding:14px}.passport-body h3{font-size:18px}}@media(max-width:1050px){.reviewer-comparison{grid-template-columns:1fr}.reviewer-passport{display:grid;grid-template-columns:minmax(0,1fr) 240px;align-items:start}.reviewer-passport h2{grid-column:1/-1}.passport-body{grid-row:2/5;display:grid;grid-template-columns:60px 1fr;gap:8px 18px}.passport-body h3{border:0;margin:0;padding:0;align-self:center}.passport-body dl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:16px}.passport-body dl>div{margin:0}.passport-body>p{grid-column:1/-1}.reviewer-heading h1{font-size:40px}}@media(max-width:760px){.reviewer-heading h1{font-size:32px;letter-spacing:-1px}.reviewer-chart{padding-top:20px}.reviewer-chart h2{font-size:20px}.reviewer-passport{display:flex}.passport-body{width:100%}.reviewer-finding{padding:16px}.reviewer-finding p{font-size:13px}#reviewer-card-dialog{padding:22px}#reviewer-card-title{font-size:23px}.reviewer-cohort{font-size:14px}.forest-scroll:after{content:'Scroll to see confidence intervals';display:block;font-size:11px;color:#ceddd7;padding:12px}.reviewer-details-row .table-scroll{max-width:100%}}
-/* Align numeric heading with the intervals, and keep optional reading compact. */
-.forest-column-heading>span:last-child{grid-column:3}.reviewer-heading h1{font-size:clamp(32px,4.2vw,62px)}.reviewer-comparison{grid-template-columns:minmax(0,1fr) 290px}.neural-row{font-size:15px}.neural-value{font-size:14px}.reviewer-details-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 20px}.reviewer-details-row details{padding:0;margin:0}.reviewer-details-row summary{margin:0;padding:14px 0}.reviewer-details-row details[open]{grid-column:1/-1}.reviewer-details-row details[open]~details{grid-column:auto}#engineering-demo{margin-top:4px}#engineering-demo>summary{margin:0;padding:14px 0;min-height:44px}body:has(#page-experiments:not([hidden])) .main-footer{margin-top:8px}
-@media(max-width:1200px){.reviewer-comparison{grid-template-columns:minmax(0,1fr) 230px}.neural-row{font-size:13px}.neural-value{font-size:12px}}
-@media(max-width:1050px){.reviewer-comparison{grid-template-columns:1fr}}
-@media(max-width:760px){.reviewer-details-row{display:block}}
+/* Experiments uses the workspace shell and the approved research palette. */
+.exp-mobile-brand { display: none; }
+body.workspace-system[data-workspace="experiments"] {
+  --canvas: #f7f8f4; --ink: #17392e; --muted: #50665a; --line: #d9e3d9; --accent: #226247;
+  --exp-sage: #eef4ea; --exp-selection: #e8f2e9; --exp-dark: #163f34; --exp-mint: #bdebcb;
+}
+body.workspace-system[data-workspace="experiments"] > main { padding: 28px clamp(24px,3.06vw,52px) 32px; }
+body.workspace-system[data-workspace="experiments"] main > header {
+  min-height: 69px; margin: -28px clamp(-52px,-3.06vw,-24px) 27px; padding: 12px clamp(24px,3.06vw,52px);
+}
+body[data-workspace="experiments"] main > header > span:not(#breadcrumb) { display: none; }
+body.workspace-system[data-workspace="experiments"] .workspace-command-trigger {
+  min-height: 36px; height: 36px; gap: 10px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px;
+}
+body[data-workspace="experiments"] .workspace-command-trigger::before {
+  content: ""; display: inline-block; width: 15px; height: 15px; background: url("/static/assets/experiments/search.svg") center / contain no-repeat;
+}
+body[data-workspace="experiments"] .main-footer { margin-top: 60px; padding-block: 17px; font-size: 13px; }
+body[data-workspace="experiments"] .main-footer time { display: inline-flex; align-items: center; gap: 8px; }
+body[data-workspace="experiments"] .main-footer time::before {
+  content: ""; width: 14px; height: 14px; background: url("/static/assets/experiments/clock.svg") center no-repeat;
+}
+#page-experiments { color: var(--ink); font-variant-numeric: tabular-nums; }
+#page-experiments [hidden], #reviewer-results[hidden] { display: none !important; }
+#page-experiments h1 { margin: 0 0 13px; font: 600 48px/1.15 Geist,sans-serif; letter-spacing: -2.2px; }
+#page-experiments h2 { margin: 0; font: 600 31px/1.25 Geist,sans-serif; letter-spacing: -1.1px; }
+#page-experiments h3 { margin: 0; font: 600 18px/1.4 Geist,sans-serif; letter-spacing: -.45px; }
+#page-experiments :where(button, select, summary) { font-family: inherit; }
+#page-experiments :is(button, select, summary, a):focus-visible, .exp-model-dialog :focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+#page-experiments .exp-tabs { display: flex; align-items: stretch; gap: 30px; margin: 0 0 28px; border-bottom: 1px solid var(--line); }
+#page-experiments .exp-tabs button {
+  min-width: 0; min-height: 54px; padding: 12px 0 13px; margin: 0 0 -1px; background: transparent; border: none; border-block-end: 3px solid transparent;
+  border-radius: 0; color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.35;
+}
+#page-experiments .exp-tabs button[aria-selected="true"] { color: var(--accent); border-block-end-color: var(--accent); font-weight: 600; }
+#page-experiments :is(#engineering-demo,#development-comparisons,#reviewer-results) { margin: 0; padding: 0; border: 0; background: transparent; }
+#page-experiments #engineering-demo section { margin: 0; }
+#page-experiments .exp-panel-heading { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin: 0 0 32px; }
+#page-experiments :is(.exp-panel-heading,.exp-dev-title) p { margin: 10px 0 0; color: var(--muted); font-size: 15px; line-height: 1.45; }
+#page-experiments .exp-panel-heading > .exp-button { margin-top: 5px; }
+#page-experiments .exp-card, .exp-model-dialog .exp-card {
+  min-width: 0; border: 1px solid var(--line); border-radius: 11px; background: #fff; padding: 0;
+}
+#page-experiments .exp-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 86px; padding: 18px 22px; }
+#page-experiments .exp-sub, .exp-model-dialog .exp-sub { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+#page-experiments abbr { text-decoration: none; }
+#page-experiments .exp-button, .exp-model-dialog .exp-button {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 9px; min-height: 42px; margin: 0;
+  padding: 10px 14px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+  font: 600 14px/1.35 Geist,sans-serif; text-decoration: none; cursor: pointer;
+}
+#page-experiments .exp-button:hover, .exp-model-dialog .exp-button:hover { background: var(--exp-sage); }
+#page-experiments .exp-button:disabled { opacity: .55; cursor: not-allowed; }
+.exp-button img, .exp-date img, .exp-back img { display: block; flex: none; }
+#page-experiments .exp-primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+#page-experiments .exp-primary:hover { background: var(--exp-dark); }
+#page-experiments .exp-narrow, #page-experiments .exp-dev-pick { display: none; }
+#reviewer-download { width: 202px; }
+#page-experiments .exp-final-grid { display: grid; grid-template-columns: minmax(0,2.45fr) minmax(255px,1fr); align-items: stretch; gap: 20px; }
+#page-experiments .exp-model-table { overflow: hidden; }
+#page-experiments .exp-table {
+  width: 100%; min-width: 0; margin: 0; table-layout: fixed; border: 0; border-spacing: 0; border-radius: 0;
+  background: #fff; box-shadow: none; font-size: 14px; line-height: 1.35; text-align: start;
+}
+#page-experiments .exp-table :is(th,td) {
+  border: 0; border-bottom: 1px solid var(--line); text-align: start; font-weight: 400; vertical-align: middle;
+  color: var(--ink); background: transparent; padding: 10px 12px; white-space: normal; letter-spacing: normal;
+}
+#page-experiments .exp-table :is(th,td):first-child { padding-inline-start: 22px; }
+#page-experiments .exp-table :is(th,td):last-child { padding-inline-end: 18px; }
+#page-experiments .exp-table thead th {
+  height: 37px; padding-block: 5px; color: var(--muted); background: var(--exp-sage); font-size: 10px; font-weight: 600; line-height: 1.2; letter-spacing: .055em; text-transform: uppercase;
+}
+#page-experiments .exp-table th button:is(#exp-sort,.exp-dev-sort) {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 9px; padding: 3px 0; min-height: 24px;
+  border: 0; border-radius: 2px; background: transparent; color: var(--ink); font: 600 11px/1.25 Geist,sans-serif;
+}
+#page-experiments .exp-table th #exp-sort { white-space: nowrap; }
+#page-experiments .exp-table th button.exp-dev-sort {
+  width: 100%; white-space: normal; overflow-wrap: normal; text-align: start;
+}
+#page-experiments .exp-table tbody tr:last-child > * { border-bottom: 0; }
+#page-experiments .exp-name-col { width: 46%; }
+#page-experiments .exp-pool-col { width: 20%; }
+#page-experiments .exp-ci-col { width: 18.5%; }
+#page-experiments .exp-mae-col { width: 15.5%; }
+#page-experiments .exp-models tbody tr { height: 58px; cursor: pointer; }
+#page-experiments .exp-table tbody tr, #page-experiments .exp-table tbody tr:nth-child(even) { background: #fff; }
+#page-experiments .exp-models tbody tr:hover, #page-experiments .exp-models tbody tr:focus-within { background: #f2f6f1; }
+#page-experiments .exp-models tbody tr.exp-chosen { background: var(--exp-selection); }
+#page-experiments .exp-chosen > th { box-shadow: inset 3px 0 var(--accent); }
+#page-experiments .exp-model-pick {
+  display: flex; align-items: center; gap: 12px; min-height: 36px; width: 100%; margin: 0; padding: 0;
+  border: 0; border-radius: 3px; background: transparent; text-align: start; color: var(--ink); font: 500 14px/1.35 Geist,sans-serif;
+}
+#page-experiments .exp-badge {
+  display: grid; place-items: center; flex: none; min-width: 34px; height: 30px; border-radius: 6px;
+  background: var(--exp-sage); color: var(--accent); font-size: 11px; font-weight: 600;
+}
+#page-experiments .exp-chosen .exp-badge { background: var(--accent); color: #fff; }
+#page-experiments .exp-model-copy { display: grid; min-width: 0; gap: 2px; }
+#page-experiments .exp-model-copy small, #page-experiments .exp-dev-pick small { color: var(--muted); font-size: 11px; font-weight: 400; }
+#page-experiments .exp-models td.exp-pool-col { color: var(--muted); font-size: 12px; }
+#page-experiments .exp-mae-cell { position: relative; }
+#page-experiments td.exp-mae-cell, #page-experiments .exp-benchmark td:not(:first-child),
+.exp-ci-value, .exp-facts dd { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+#page-experiments .exp-models .exp-mae-cell { font-size: 15px; padding-right: 20px; }
+#page-experiments .exp-chosen .exp-mae-cell { color: var(--accent); }
+.exp-row-chevron { display: inline-block; width: 14px; height: 14px; vertical-align: middle; background: url("/static/assets/experiments/right.svg") center no-repeat; }
+.exp-mae-cell .exp-row-chevron { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); }
+.exp-interval svg { display: block; width: 100%; height: 16px; overflow: visible; fill: none; }
+.exp-axis-line { stroke: var(--line); stroke-width: 1.5; }
+.exp-ci-line, .exp-ci-point { stroke: var(--accent); stroke-width: 2; stroke-linecap: round; }
+.exp-ci-point { stroke-width: 5; }
+.exp-axis-labels { display: flex; justify-content: space-between; margin-top: 5px; color: var(--muted); font-size: 10px; }
+#page-experiments .exp-selected { display: flex; flex-direction: column; }
+.exp-highlight {
+  padding: 23px 22px 27px; border-radius: 10px; background: var(--exp-dark); color: #fff;
+}
+#page-experiments .exp-highlight h3 { color: #fff; font-size: 25px; line-height: 1.2; letter-spacing: -.7px; }
+#page-experiments .exp-highlight .exp-eyebrow { margin: 0 0 20px; color: var(--exp-mint); font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+#page-experiments .exp-highlight .exp-variant { margin: 7px 0 0; color: var(--exp-mint); font-size: 14px; line-height: 1.4; }
+#page-experiments .exp-big-value { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 8px; color: #fff; font: 500 46px/1.18 Geist,sans-serif; letter-spacing: -2px; }
+#page-experiments .exp-big-value small { font-size: 17px; font-weight: 500; letter-spacing: normal; color: var(--exp-mint); }
+#page-experiments .exp-highlight .exp-metric-label { margin: 0; color: #fff; font-size: 13px; line-height: 1.6; }
+.exp-selected-body { display: flex; flex: 1; flex-direction: column; padding: 20px 22px; }
+#page-experiments .exp-ci-value { margin: 6px 0 20px; font-size: clamp(16px,1.4vw,21px); white-space: nowrap; }
+.exp-selected-body .exp-interval { padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+.exp-facts { margin: 12px 0; }
+.exp-facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 7px 0; }
+.exp-facts dt { color: var(--muted); font-size: 13px; }
+.exp-facts dd { margin: 0; color: var(--ink); font-size: 14px; }
+#page-experiments .exp-note { margin: auto 0 18px; padding-top: 12px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+#reviewer-card-dialog.exp-model-dialog {
+  box-sizing: border-box; border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(590px,92vw);
+  max-width: 100%; max-height: 90dvh; margin: auto; background: var(--canvas); color: var(--ink); overflow-y: auto; overscroll-behavior: contain;
+}
+.exp-model-dialog::backdrop { background: #112b23a3; }
+.exp-model-dialog > header { position: sticky; top: 0; z-index: 1; padding: 5px 12px; background: white; border-bottom: 1px solid var(--line); }
+#page-experiments .exp-back { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 5px 8px; background: transparent; color: var(--ink); border: 0; font-size: 15px; font-weight: 600; }
+.exp-detail-body { padding: 22px 24px 18px; }
+#page-experiments .exp-detail-body > h2 { margin: 0 0 22px; }
+#reviewer-card-content { display: grid; gap: 18px; }
+#page-experiments .exp-detail-card { padding: 18px; }
+#page-experiments .exp-detail-card p { margin: 18px 0 0; }
+.exp-detail-card .exp-facts { margin: 10px 0 0; }
+.exp-detail-card .exp-facts > div { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.exp-detail-card .exp-facts > div:last-child { border: 0; padding-bottom: 4px; }
+#page-experiments .exp-download-card { margin: 20px 0 0; width: 100%; }
+.exp-methods { margin: 12px 0 0; font-size: 13px; }
+.exp-methods summary { padding: 10px 0; }
+.exp-methods h4 { margin: 16px 0 4px; font-weight: 600; }
+.exp-methods p, .exp-methods ul { margin: 0 0 12px; color: var(--muted); overflow-wrap: anywhere; }
+.exp-date { display: flex; gap: 9px; align-items: center; margin: 24px 0 0; padding: 14px 0 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+/* Both development protocols retain independent tables and exports. */
+#development-results {
+  display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "title export" "tuned tuned" "pair pair" "classification classification";
+  column-gap: 16px; row-gap: 22px; padding: 0;
+}
+#development-results .exp-dev-title { grid-area: title; padding-bottom: 10px; }
+#page-experiments #development-download { grid-area: export; align-self: start; width: 210px; margin-top: 5px; }
+#development-results .exp-tuned { grid-area: tuned; overflow: hidden; }
+#page-experiments .exp-tuned .exp-card-heading { min-height: 93px; padding-right: 268px; }
+#development-results .exp-family { grid-area: tuned; align-self: start; justify-self: end; z-index: 1; width: 224px; margin: 21px 23px; }
+#page-experiments :where(.exp-family,.exp-fields,#classification-study-control) label {
+  display: grid; gap: 6px; color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.45;
+}
+#page-experiments :where(.exp-family,.exp-fields,#classification-study-control) select {
+  box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; margin: 0; padding: 9px 34px 9px 14px; border: 1px solid var(--line); border-radius: 7px;
+  appearance: none; background: #fff url("/static/assets/experiments/chevron.svg") right 12px center / 18px 18px no-repeat; color: var(--ink); font-size: 14px; font-weight: 500;
+}
+#page-experiments .exp-family select {
+  padding-left: 42px; background-image: url("/static/assets/experiments/sliders.svg"),url("/static/assets/experiments/chevron.svg");
+  background-position: left 13px center,right 12px center; background-size: 18px,18px;
+}
+.exp-family-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+#development-results #matched-boosting { grid-area: pair; overflow: hidden; }
+#page-experiments .exp-benchmark tbody tr { height: 52px; }
+#page-experiments .exp-benchmark tbody th { font-size: 14px; font-weight: 500; }
+#page-experiments .exp-benchmark tbody td { font-size: 14px; }
+#page-experiments .exp-benchmark th:first-child { width: 34%; }
+#page-experiments .exp-benchmark thead th:nth-child(2) { width: 18%; }
+#page-experiments .exp-benchmark thead th:last-child { text-transform: none; }
+#page-experiments .exp-benchmark .exp-row-chevron, #page-experiments .exp-benchmark .exp-dev-detail { display: none; }
+#page-experiments .exp-classifiers { grid-area: classification; margin: 0; padding: 0; border: 0; }
+#page-experiments .exp-classifiers > summary, #page-experiments .exp-run-details > summary, #page-experiments .exp-methods > summary {
+  display: flex; align-items: center; gap: 9px; min-height: 38px; margin: 0; border: 0; list-style: none; color: var(--ink); font-size: 14px; font-weight: 500; cursor: pointer;
+}
+#page-experiments :is(.exp-classifiers,.exp-run-details,.exp-methods) > summary::-webkit-details-marker { display: none; }
+#page-experiments :is(.exp-classifiers,.exp-run-details,.exp-methods) > summary::before {
+  content: ""; flex: none; width: 14px; height: 14px; background: url("/static/assets/experiments/right.svg") center no-repeat;
+}
+#page-experiments :is(.exp-classifiers,.exp-run-details,.exp-methods)[open] > summary::before { transform: rotate(90deg); }
+#page-experiments .exp-classifiers > p { margin: 10px 0; color: var(--muted); }
+#classification-study-control { max-width: 280px; margin: 12px 0; }
+#page-experiments .table-scroll { max-width: 100%; overflow: auto; }
+#page-experiments #development-classification { max-width: 100%; min-width: 0; }
+
+/* Training values come from the same runner that owns the job and quota controls. */
+#page-experiments .exp-cohort { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); margin: 0 0 24px; padding: 20px 2px; }
+.exp-cohort > div { display: flex; flex-direction: column; padding: 0 23px; border-left: 1px solid var(--line); }
+.exp-cohort > div:first-child { border: 0; }
+.exp-cohort dt { color: var(--muted); font-size: 13px; font-weight: 500; }
+.exp-cohort dd { margin: 0; }
+.exp-cohort dd:nth-child(2) { padding: 2px 0 8px; font-size: 33px; font-weight: 600; line-height: 1.25; letter-spacing: -1px; }
+.exp-cohort dd:last-child { color: var(--muted); font-size: 12px; }
+.exp-training-grid { display: grid; grid-template-columns: minmax(0,1.57fr) minmax(260px,1fr); gap: 22px; }
+#page-experiments .exp-training-setup, #page-experiments .exp-quota { padding: 22px; }
+#train-form { margin: 34px 0 0; }
+.exp-fields { display: grid; grid-template-columns: minmax(0,1.14fr) minmax(0,1fr); gap: 20px; }
+.exp-fields label { min-width: 0; }
+#page-experiments .exp-split { display: grid; gap: 12px; margin: 32px 0; padding: 17px; border-radius: 8px; background: var(--exp-sage); }
+.exp-split > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.exp-split strong { color: var(--ink); font-size: 15px; font-weight: 600; }
+.exp-split progress { display: block; width: 100%; height: 9px; margin: 0; border: 0; border-radius: 4px; overflow: hidden; appearance: none; background: #9fbe9f; color: var(--accent); }
+.exp-split progress::-webkit-progress-bar { background: #9fbe9f; }
+.exp-split progress::-webkit-progress-value { background: var(--accent); border-right: 4px solid var(--exp-sage); border-radius: 4px; }
+.exp-split progress::-moz-progress-bar { background: var(--accent); border-right: 4px solid var(--exp-sage); }
+.exp-split-labels { color: var(--muted); font-size: 12px; }
+.exp-run-actions { display: grid; grid-template-columns: minmax(0,auto) minmax(0,1fr); align-items: start; gap: 16px; margin-top: 24px; }
+#page-experiments .exp-run-actions #train { min-width: 150px; }
+#page-experiments .exp-run-details { margin: 0; padding: 0; border: 0; }
+#page-experiments .exp-run-details > summary { justify-content: end; min-height: 42px; color: var(--muted); font-size: 13px; }
+#page-experiments .exp-run-details p { overflow-wrap: anywhere; margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+#page-experiments #feedback { margin: 12px 0 0; }
+#page-experiments #feedback:empty, #page-experiments #jobs-status:empty, .exp-quota-compact { display: none; }
+#page-experiments .exp-quota-number { display: grid; gap: 5px; border-block-start: 1px solid var(--line); padding-top: 24px; margin-top: 24px; }
+#page-experiments #allowance { margin: 0; padding: 0; background: transparent; border: 0; color: var(--ink); font-size: 35px; font-weight: 600; line-height: 1.3; letter-spacing: -1px; }
+#page-experiments #shared-allowance { margin: 26px 0 0; color: var(--muted); font-size: 14px; }
+#page-experiments #engineering-demo .exp-jobs, #page-experiments #engineering-demo .exp-run-result { margin-top: 24px; }
+#page-experiments .exp-jobs .exp-card-heading { min-height: 116px; }
+#page-experiments .exp-jobs .exp-button { min-width: 145px; }
+#page-experiments .exp-run-result, #page-experiments .exp-published { padding: 22px; }
+#page-experiments .exp-published .exp-card-heading { padding: 0; }
+.exp-run-result pre { max-inline-size: 100%; overflow-x: auto; }
+body:has(.exp-model-dialog[open]) { overflow: hidden; }
+
+@media (min-width:901px) and (max-width:1170px) {
+  #page-experiments .exp-final-grid { grid-template-columns: minmax(0,1fr) minmax(218px,31%); gap: 14px; }
+  #page-experiments .exp-models .exp-pool-col { display: none; }
+  #page-experiments .exp-models .exp-name-col { width: 53%; }
+  #page-experiments .exp-models .exp-ci-col { width: 23%; }
+  #page-experiments .exp-models .exp-mae-col { width: 24%; }
+  #page-experiments .exp-model-pick { gap: 6px; }
+  .exp-selected-body, .exp-highlight { padding-inline: 16px; }
+}
+@media (max-width: 900px) {
+  body.workspace-system[data-workspace="experiments"] > main { padding: 20px 20px 16px; }
+  body.workspace-system[data-workspace="experiments"] main > header { margin: -20px -20px 24px; padding: 8px 16px; min-height: 57px; }
+  body.workspace-system[data-workspace="experiments"][data-mobile-navigation="ready"] > aside { display: none; }
+  body.workspace-system[data-workspace="experiments"][data-mobile-navigation="ready"] main > header {
+    position: sticky; top: 0; flex-wrap: nowrap; gap: 0; padding: 5px 11px; height: 57px; background: #fff;
+  }
+  body[data-workspace="experiments"][data-mobile-navigation="ready"] #breadcrumb { display: none; }
+  body[data-workspace="experiments"][data-mobile-navigation="ready"] .exp-mobile-brand {
+    display: inline-flex; align-items: center; gap: 8px; order: 1; color: var(--ink); font-size: 16px; font-weight: 700; letter-spacing: -.5px; text-decoration: none;
+  }
+  body[data-workspace="experiments"] .workspace-navigation { order: 0; }
+  body.workspace-system[data-workspace="experiments"] .workspace-navigation-trigger,
+  body.workspace-system[data-workspace="experiments"] .workspace-command-trigger {
+    display: inline-flex; justify-content: center; width: 42px; height: 44px; padding: 0; border: 0; color: var(--ink); background: transparent;
+  }
+  body[data-workspace="experiments"] .workspace-command-palette { order: 2; margin-inline-start: auto; }
+  body[data-workspace="experiments"] .workspace-navigation-trigger span,
+  body[data-workspace="experiments"] .workspace-command-trigger :is(span,ui-dialog-shortcut) { display: none; }
+  body[data-workspace="experiments"] .workspace-command-trigger::before { width: 19px; height: 19px; }
+  #page-experiments .exp-final-grid { grid-template-columns: minmax(0,1fr) minmax(220px,30%); gap: 12px; }
+  #page-experiments .exp-models .exp-pool-col { display: none; }
+}
+@media (max-width:760px) {
+  body.workspace-system[data-workspace="experiments"] > main { padding-inline: 16px; }
+  body.workspace-system[data-workspace="experiments"] main > header { margin-inline: -16px; margin-bottom: 18px; }
+  #page-experiments h1 { margin: 0 4px 8px; font-size: 34px; line-height: 1.25; letter-spacing: -1.4px; }
+  #page-experiments h2 { font-size: 24px; letter-spacing: -.75px; }
+  #page-experiments h3 { font-size: 17px; }
+  #page-experiments .exp-tabs { justify-content: space-between; gap: 5px; margin: 0 4px 31px; }
+  #page-experiments .exp-tabs button { min-height: 49px; font-size: clamp(11px,3.15vw,14px); }
+  #page-experiments .exp-panel-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; margin: 0 4px 24px; }
+  #page-experiments :is(.exp-panel-heading,.exp-dev-title) p { margin-top: 6px; font-size: 13px; }
+  #page-experiments .exp-panel-heading > .exp-button { margin: 0; min-height: 40px; width: auto; }
+  #page-experiments .exp-wide, #page-experiments .exp-models :is(.exp-ci-col,.exp-pool-col), #page-experiments .exp-selected { display: none; }
+  #page-experiments .exp-narrow { display: inline; }
+  #page-experiments .exp-final-grid { display: block; }
+  #page-experiments .exp-card-heading, #page-experiments .exp-tuned .exp-card-heading { min-height: 79px; padding: 16px 13px; }
+  #page-experiments .exp-sub { font-size: 12px; }
+  #page-experiments .exp-table :is(td,th):first-child { padding-inline-start: 12px; }
+  #page-experiments .exp-table :is(td,th):last-child { padding-inline-end: 10px; }
+  #page-experiments .exp-table thead th { height: 32px; padding-block: 4px; }
+  #page-experiments .exp-models .exp-name-col { width: 73%; }
+  #page-experiments .exp-benchmark thead th:first-child { width: 48%; }
+  #page-experiments .exp-benchmark thead th:nth-child(3) { width: 25%; }
+  #page-experiments .exp-benchmark thead th { overflow-wrap: anywhere; line-height: 1.35; }
+  #page-experiments .exp-models .exp-mae-col, #page-experiments .exp-benchmark thead th:nth-child(2) { width: 27%; }
+  #page-experiments .exp-model-pick { gap: 9px; min-height: 42px; font-size: 13px; }
+  #page-experiments .exp-badge { min-width: 32px; height: 30px; }
+  #page-experiments .exp-models tbody :is(th,td) { padding-block: 5px; }
+  #page-experiments .exp-table td.exp-mae-cell { padding: 7px 20px 7px 8px; white-space: nowrap; font-size: 14px; }
+  #page-experiments .exp-table thead th:nth-child(4), #page-experiments .exp-benchmark thead th:nth-child(2) { padding-left: 8px; }
+  #page-experiments #exp-sort img { display: none; }
+  .exp-mae-cell .exp-row-chevron { right: 5px; }
+  #development-results { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "title title" "family export" "tuned tuned" "pair pair" "classification classification"; gap: 16px 10px; }
+  #development-results .exp-dev-title { margin-left: 4px; padding: 0; }
+  #development-results .exp-family { grid-area: family; justify-self: stretch; width: auto; max-width: 260px; margin: 0 0 6px 4px; }
+  .exp-family-name { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  #page-experiments .exp-family select { padding-left: 13px; background-image: url("/static/assets/experiments/chevron.svg"); background-position: right 12px center; }
+  #page-experiments #development-download { align-self: end; width: auto; min-height: 44px; margin: 0 4px 6px 0; }
+  #page-experiments .exp-benchmark .exp-secondary-metric { display: none; }
+  #page-experiments .exp-benchmark tbody tr:has(.exp-dev-pick) { cursor: pointer; }
+  #page-experiments .exp-benchmark .exp-dev-pick { display: grid; align-content: center; gap: 1px; min-height: 42px; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: start; font-size: 14px; font-weight: 500; }
+  #page-experiments .exp-benchmark .exp-row-chevron { display: inline-block; }
+  #page-experiments .exp-benchmark .exp-expanded .exp-row-chevron { transform: translateY(-50%) rotate(90deg); }
+  #page-experiments .exp-benchmark .exp-dev-detail:not([hidden]) { display: table-row; }
+  #page-experiments .exp-benchmark :is(.exp-dev-detail td,.exp-dev-detail dd) { font-size: 13px; background: var(--exp-sage); }
+  #page-experiments .exp-benchmark .exp-dev-detail dl { margin: 0 3px; }
+  #page-experiments .exp-benchmark .exp-dev-detail dt { font-family: Geist,sans-serif; }
+  #page-experiments .exp-benchmark tbody th { padding-block: 4px; }
+  #page-experiments .exp-classifiers > summary { font-size: 14px; }
+  #page-experiments .exp-cohort { grid-template-columns: 1fr 1fr; padding: 16px 0; margin-bottom: 18px; }
+  .exp-cohort > div { padding: 0 15px; }
+  .exp-cohort > div:first-child, .exp-cohort dd:last-child { display: none; }
+  .exp-cohort > div:nth-child(2) { border: 0; }
+  .exp-cohort dt { order: 2; font-size: 12px; }
+  .exp-cohort dd:nth-child(2) { font-size: 25px; }
+  .exp-training-grid { display: block; }
+  #page-experiments .exp-training-setup { padding: 17px 15px; }
+  #page-experiments .exp-quota { display: none; }
+  #page-experiments .exp-quota-compact { display: block; margin: 16px 0; color: var(--muted); font-size: 12px; }
+  #train-form { margin-top: 23px; }
+  .exp-fields { grid-template-columns: 1fr; gap: 16px; }
+  #page-experiments .exp-fields select, #page-experiments .exp-family select { font-size: 16px; }
+  #page-experiments .exp-split { margin: 20px 0; padding: 14px 12px; }
+  .exp-split strong { font-size: 14px; }
+  #page-experiments .exp-split-labels { display: none; }
+  .exp-run-actions { grid-template-columns: 1fr; gap: 4px; margin: 14px 0 0; }
+  #page-experiments .exp-run-details > summary { justify-content: start; }
+  #page-experiments .exp-jobs .exp-card-heading { min-height: 90px; }
+  #page-experiments .exp-jobs .exp-button { min-width: 44px; min-height: 44px; padding: 10px; justify-content: center; border: 0; }
+  .exp-jobs #refresh span { display: none; }
+  #page-experiments .exp-published .exp-card-heading { align-items: start; flex-direction: column; }
+  #page-experiments .exp-model-dialog { inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
+  .exp-detail-body { padding: 20px 16px; }
+  #page-experiments .exp-detail-body > h2 { margin: 0 4px 20px; font-size: 30px; letter-spacing: -1px; }
+  #page-experiments .exp-model-dialog .exp-highlight { padding: 22px 20px; }
+  #page-experiments .exp-model-dialog .exp-highlight h3 { font-size: 24px; }
+  #page-experiments .exp-model-dialog .exp-big-value { margin: 20px 0 9px; font-size: 51px; }
+  #page-experiments .exp-detail-card { padding: 17px 16px; }
+  body[data-workspace="experiments"] .main-footer { margin-top: 36px; font-size: 12px; }
+}

@@ -1,27 +1,52 @@
 import * as THREE from './vendor/three/three.module.js';
 import {OrbitControls} from './vendor/three/OrbitControls.js';
-import {spatialFrame,STUDY_STYLES} from './spatial-model.mjs';
+import {spatialFrame,clusterSpatialFrame,STUDY_STYLES} from './spatial-model.mjs';
 
-/** Optional, demand-rendered visualization of the analysis service's existing result. */
 export function createAnalysisScene(container, callbacks) {
+  return createScatterScene(container, callbacks, 'recorded-dose-gy', 'Spatial PCA: PC1 and PC2 on the floor, recorded dose in Gy vertically.', result => {
+    const guide = globalThis.defenderPcaOutliers?.forResult(result);
+    const frame = spatialFrame(result, guide?.outlines);
+    const explained = result.pca.explained_variance_ratio;
+    return {frame, guide, verticalTicks: frame.ticks.dose, reference: result, id: result.analysis_id,
+      titles: [`PC1 · ${(explained[0]*100).toFixed(1)}%`, `PC2 · ${(explained[1]*100).toFixed(1)}%`, 'Recorded dose · Gy'],
+      styles: result.samples.map(sample => ({study: sample.study_id, ...(STUDY_STYLES[sample.study_id] || {color:'#becfba',shape:'circle'})}))};
+  });
+}
+
+export function createClusterScene(container, callbacks) {
+  return createScatterScene(container, callbacks, 'weighted-pc3', 'Clustering in 3D: weighted PC1 and PC2 on the base, weighted PC3 vertically.', result => {
+    const frame = clusterSpatialFrame(result.reference, result.points);
+    return {frame, verticalTicks: frame.ticks.pc3, reference: result.reference, id: result.id,
+      titles: ['Weighted PC1', 'Weighted PC2', 'Weighted PC3'],
+      styles: result.points.map((p,i) => ({study:p.study, color:result.colors[i], shape:'circle'}))};
+  });
+}
+
+/** Demand-rendered view of measured coordinates. Callers supply axis semantics and marker styles. */
+function createScatterScene(container, callbacks, heightAxis, description, prepare) {
   const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,powerPreference:'low-power'});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const canvas=renderer.domElement;
   canvas.tabIndex=0;
   canvas.setAttribute('role','img');
-  canvas.setAttribute('aria-label','Spatial PCA: PC1 and PC2 on the floor, recorded dose in Gy vertically. Drag to rotate, scroll to zoom. Arrow keys select profiles; Home resets the camera.');
+  canvas.setAttribute('aria-label', description+' Drag or use Shift and arrow keys to rotate. Scroll to zoom. Arrow keys select profiles. Home resets the camera.');
   container.replaceChildren(canvas);
   const world=new THREE.Scene();world.background=new THREE.Color('#10261f');
   const camera=new THREE.OrthographicCamera(-8,8,6,-6,.1,120);
   const controls=new OrbitControls(camera,canvas);
   controls.enableDamping=false;controls.rotateSpeed=.7;controls.zoomSpeed=.8;
-  controls.minZoom=.4;controls.maxZoom=4;controls.minPolarAngle=.12;controls.maxPolarAngle=Math.PI*.49;
+  controls.minZoom=.4;controls.maxZoom=4;controls.minPolarAngle=.12;controls.maxPolarAngle=heightAxis==='weighted-pc3'?Math.PI-.12:Math.PI*.49;
   world.add(new THREE.AmbientLight('#e3f4df',2.1));
   const key=new THREE.DirectionalLight('#fff',2.4);key.position.set(-6,13,10);world.add(key);
   const fill=new THREE.DirectionalLight('#9ed7bc',1.1);fill.position.set(8,4,-9);world.add(fill);
-  let group=null,points=[],ring=null,current=null,active=false,chosen=-1,highlight=null,rotating=false,rotationHandle=0;
-  const draw=()=>{if(active&&!document.hidden)renderer.render(world,camera);};
+  let group=null,points=[],ring=null,current=null,reference=null,active=false,chosen=-1,highlight=null,rotating=false,rotationHandle=0;
+  let guideLayer=null, guideRings=[], guidesEnabled=true;
+  const draw=()=>{
+    if(!active || document.hidden) return;
+    if(guideLayer?.visible) for(const marker of guideRings) marker.quaternion.copy(camera.quaternion);
+    renderer.render(world,camera);
+  };
   controls.addEventListener('change',draw);
   const motion=matchMedia('(prefers-reduced-motion:reduce)');
   function spin(enabled){
@@ -58,47 +83,97 @@ export function createAnalysisScene(container, callbacks) {
     group.traverse(object=>{if(object.geometry)geometries.add(object.geometry);if(object.material)materials.add(object.material);});
     geometries.forEach(g=>g.dispose());materials.forEach(m=>{m.map?.dispose();m.dispose();});
   }
+  function addOutlierGuides(guide,frame){
+    guideLayer=new THREE.Group();
+    group.add(guideLayer);
+    const byStudy=new Map();
+    for(const [study,outline] of guide.outlines){
+      const guides=new THREE.Group();
+      guides.userData.study=study;
+      guideLayer.add(guides);
+      byStudy.set(study,guides);
+      const vertices=outline.map(pair=>new THREE.Vector3(...frame.floorPosition(pair)));
+      const geometry=new THREE.BufferGeometry().setFromPoints(vertices);
+      const material=new THREE.LineBasicMaterial({color:STUDY_STYLES[study]?.color??'#c9dccf',transparent:true,opacity:.9});
+      guides.add(new THREE.LineLoop(geometry,material));
+    }
+    if(guide.flagged.length){
+      const ringShape=new THREE.RingGeometry(.17,.216,40);
+      const amber=new THREE.MeshBasicMaterial({color:'#ffcb68',side:THREE.DoubleSide,depthTest:false,depthWrite:false});
+      for(const index of guide.flagged){
+        const point=points[index],guides=byStudy.get(point.userData.study);
+        const marker=new THREE.Mesh(ringShape,amber);
+        marker.position.copy(point.position);
+        marker.userData=point.userData;
+        marker.renderOrder=3;
+        guides.add(marker);
+        guideRings.push(marker);
+        if(point.position.y>frame.bounds.floor){
+          const floor=point.position.clone();floor.y=frame.bounds.floor;
+          const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([point.position,floor]),
+            new THREE.LineDashedMaterial({color:'#ffcb68',transparent:true,opacity:.72,dashSize:.13,gapSize:.10}));
+          line.computeLineDistances();
+          guides.add(line);
+        }
+      }
+    }
+    setGuidesVisible(guidesEnabled);
+  }
+  function setGuidesVisible(enabled){
+    guidesEnabled=enabled;
+    if(!guideLayer)return;
+    guideLayer.visible=enabled;
+    container.dataset.outlierGuides=String(enabled);
+    draw();
+  }
   function setResult(result){
     if(result===current)return;
-    const frame=spatialFrame(result);release();current=result;points=[];chosen=-1;highlight=null;
+    const {frame,guide,verticalTicks,titles,styles,reference:nextReference,id}=prepare(result);
+    release();current=result;points=[];chosen=-1;highlight=null;guideLayer=null;guideRings=[];
     group=new THREE.Group();world.add(group);
     const b=frame.bounds;
     for(const tick of frame.ticks.pc1){stroke([tick.position,b.floor,b.back],[tick.position,b.floor,b.front]);stroke([tick.position,b.floor,b.back],[tick.position,b.ceiling,b.back],.13);text(tick.value,[tick.position,b.floor-.3,b.front+.23]);}
     for(const tick of frame.ticks.pc2){stroke([b.left,b.floor,tick.position],[b.right,b.floor,tick.position]);stroke([b.left,b.floor,tick.position],[b.left,b.ceiling,tick.position],.13);text(tick.value,[b.left-.67,b.floor-.24,tick.position]);}
-    for(const tick of frame.ticks.dose){stroke([b.left,tick.position,b.back],[b.right,tick.position,b.back],.15);stroke([b.left,tick.position,b.back],[b.left,tick.position,b.front],.15);text(Number(tick.value.toFixed(2)),[b.left-.35,tick.position,b.back]);}
+    for(const tick of verticalTicks){stroke([b.left,tick.position,b.back],[b.right,tick.position,b.back],.15);stroke([b.left,tick.position,b.back],[b.left,tick.position,b.front],.15);text(Number(tick.value.toFixed(2)),[b.left-.35,tick.position,b.back]);}
     stroke([b.left,b.floor,b.front],[b.right,b.floor,b.front],.5,'#b7d4bf');stroke([b.left,b.floor,b.back],[b.left,b.floor,b.front],.5,'#b7d4bf');stroke([b.left,b.floor,b.back],[b.left,b.ceiling,b.back],.5,'#b7d4bf');
-    const explained=result.pca.explained_variance_ratio;
-    text(`PC1 · ${(explained[0]*100).toFixed(1)}%`,[0,b.floor-.8,b.front+.6],true);
-    text(`PC2 · ${(explained[1]*100).toFixed(1)}%`,[b.left-3.6,b.floor-.8,(b.back+b.front)/2],true);
-    text('Recorded dose · Gy',[b.left-.1,b.ceiling+.55,b.back],true);
+    text(titles[0],[0,b.floor-.8,b.front+.6],true);
+    text(titles[1],[b.left-3.6,b.floor-.8,(b.back+b.front)/2],true);
+    text(titles[2],[b.left-.1,b.ceiling+.55,b.back],true);
     const shapes={circle:new THREE.SphereGeometry(.105,18,12),diamond:new THREE.OctahedronGeometry(.135),square:new THREE.BoxGeometry(.17,.17,.17)};
     for(const p of frame.positions){
-      const sample=result.samples[p.index],style=STUDY_STYLES[sample.study_id]||{color:'#becfba',shape:'circle'};
+      const style=styles[p.index];
       const material=new THREE.MeshStandardMaterial({color:style.color,emissive:style.color,emissiveIntensity:.08,metalness:.08,roughness:.35,transparent:true});
-      const dot=new THREE.Mesh(shapes[style.shape],material);dot.position.set(p.x,p.y,p.z);dot.userData={index:p.index,study:sample.study_id};group.add(dot);points.push(dot);
+      const dot=new THREE.Mesh(shapes[style.shape],material);dot.position.set(p.x,p.y,p.z);dot.userData={index:p.index,study:style.study};group.add(dot);points.push(dot);
     }
     ring=new THREE.Mesh(new THREE.SphereGeometry(.16,20,12),new THREE.MeshBasicMaterial({color:'#edf1dc',wireframe:true,transparent:true,opacity:.6}));ring.visible=false;group.add(ring);
-    container.dataset.renderer='threejs';container.dataset.profiles=String(points.length);container.dataset.analysisId=result.analysis_id;container.dataset.heightAxis='recorded-dose-gy';
-    reset();resize();
+    if(guide) addOutlierGuides(guide,frame);
+    container.dataset.renderer='threejs';container.dataset.profiles=String(points.length);container.dataset.analysisId=id;container.dataset.heightAxis=heightAxis;
+    if(reference!==nextReference)reset();
+    reference=nextReference;resize();
   }
   function choose(index){chosen=index;if(!ring)return;ring.visible=Boolean(points[index]);if(points[index])ring.position.copy(points[index].position);draw();}
-  function emphasize(study){highlight=study;for(const p of points){p.material.opacity=!study||p.userData.study===study?1:.14;p.material.depthWrite=p.material.opacity===1;}draw();}
+  function emphasize(study){highlight=study;for(const p of points){p.material.opacity=!study||p.userData.study===study?1:.14;p.material.depthWrite=p.material.opacity===1;}
+    if(guideLayer)for(const guides of guideLayer.children)guides.visible=!study||guides.userData.study===study;
+    draw();}
   const picker=new THREE.Raycaster(),pointer=new THREE.Vector2();
-  function under(event){const r=canvas.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,1-(event.clientY-r.top)/r.height*2);picker.setFromCamera(pointer,camera);return picker.intersectObjects(points).find(hit=>hit.object.material.opacity>.5)?.object;}
+  function under(event){const r=canvas.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,1-(event.clientY-r.top)/r.height*2);picker.setFromCamera(pointer,camera);
+    const targets=guideLayer?.visible?points.concat(guideRings.filter(marker=>marker.parent.visible)):points;
+    return picker.intersectObjects(targets).find(hit=>hit.object.material.opacity>.5)?.object;}
   let down;
   canvas.addEventListener('pointerdown',event=>{down=[event.clientX,event.clientY];});
   canvas.addEventListener('pointerup',event=>{if(!down||Math.hypot(event.clientX-down[0],event.clientY-down[1])>6)return;const dot=under(event);if(dot)callbacks.onSelect(dot.userData.index);});
-  canvas.addEventListener('pointermove',event=>{if(event.buttons){callbacks.onHover(null);return;}const dot=under(event);canvas.style.cursor=dot?'pointer':'grab';callbacks.onHover(dot?{index:dot.userData.index,x:event.clientX,y:event.clientY}:null);});
-  canvas.addEventListener('pointerleave',()=>callbacks.onHover(null));
+  canvas.addEventListener('pointermove',event=>{if(event.buttons){callbacks.onHover?.(null);return;}const dot=under(event);canvas.style.cursor=dot?'pointer':'grab';callbacks.onHover?.(dot?{index:dot.userData.index,x:event.clientX,y:event.clientY}:null);});
+  canvas.addEventListener('pointerleave',()=>callbacks.onHover?.(null));
   canvas.addEventListener('keydown',event=>{
     const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:['ArrowLeft','ArrowUp'].includes(event.key)?-1:0;
-    if(direction&&points.length){event.preventDefault();callbacks.onSelect(chosen<0?(direction<0?points.length-1:0):(chosen+direction+points.length)%points.length);}
+    if(direction&&event.shiftKey){event.preventDefault();if(event.key==='ArrowLeft'||event.key==='ArrowRight')controls.rotateLeft(-direction*Math.PI/12);else controls.rotateUp(-direction*Math.PI/12);}
+    else if(direction&&points.length){event.preventDefault();callbacks.onSelect(chosen<0?(direction<0?points.length-1:0):(chosen+direction+points.length)%points.length);}
     else if(event.key==='Home'){event.preventDefault();reset();}
     else if(['+','=','-'].includes(event.key)){event.preventDefault();camera.zoom=THREE.MathUtils.clamp(camera.zoom*(event.key==='-'?1/1.15:1.15),.4,4);camera.updateProjectionMatrix();draw();}
   });
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();spin(false);active=false;callbacks.onUnavailable();});
   reset();resize();
-  return Object.freeze({setResult,select:choose,highlight:emphasize,reset,resize,rotate:spin,
+  return Object.freeze({setResult,select:choose,highlight:emphasize,setGuidesVisible,reset,resize,rotate:spin,
     setActive(value){active=Boolean(value);if(!active)spin(false);else resize();},
     image(){draw();return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Image export unavailable.')),'image/png'));}
   });

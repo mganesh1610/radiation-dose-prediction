@@ -1,7 +1,21 @@
 {
-  "name": "prod",
+  "name": "defender-guest",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-02",
   "workers_dev": true,
-  "observability": { "enabled": true }
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "../../data/shared_site",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "GUEST_DB",
+      "database_name": "defender-guest-local",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
 }

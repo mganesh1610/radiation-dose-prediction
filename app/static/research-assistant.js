@@ -4,7 +4,7 @@
  const input=document.getElementById('assistant-question'),output=document.getElementById('assistant-answer');
  function ask(q){const r=window.defenderAnswers.answer(q,data);output.replaceChildren(el('p',r.answer));for(const s of r.sources){const a=el('a',s.label);a.href=s.url;if(s.url.startsWith('https:')){a.target='_blank';a.rel='noopener noreferrer';}output.append(a);}}
  document.getElementById('assistant-form').onsubmit=e=>{e.preventDefault();ask(input.value);};
- for(const q of ['Did Model A outperform B, C and D?','What is the final test MAE for gradient boosting?','Did clustering improve prediction?','What is the dose for GSM2751831?']){const b=el('button',q);b.className='secondary';b.onclick=()=>{input.value=q;ask(q);};document.getElementById('assistant-suggestions').append(b);}
+ for(const q of ['What is the final test MAE for Model A (whole-blood neural regression)?','What is the final test MAE for gradient boosting?','Did clustering improve prediction?','What is the dose for GSM2751831?']){const b=el('button',q);b.className='secondary';b.onclick=()=>{input.value=q;ask(q);};document.getElementById('assistant-suggestions').append(b);}
  for(const f of data.facts){const li=el('li'),b=el('button',f.question);b.className='text-button';b.onclick=()=>{input.value=f.question;ask(f.question);};li.append(b);document.getElementById('assistant-topics').append(li);}
  }catch(e){ready=false;host.replaceChildren(el('p',e.message));const b=el('button','Retry approved records');b.onclick=init;host.append(b);}}
  window.addEventListener('hashchange',init);init();})();

@@ -35,6 +35,8 @@ const cases=[
  ['Is this a generative AI chatbot?','structured-answer fallback'],
  ['What is final test MAE for Model A?','1.537 Gy'],
  ['What is final test MAE for gradient boosting?','0.795 Gy'],
+ ['What is final test MAE for gradient boosting with WBC?','0.777 Gy'],
+ ['When was the last evaluation?','22 Nov 2026'],
  ['What is Elastic Net MAE?','specify'],
  ['What is the DNA sequence of this gene?','Not recorded'],
 ];

@@ -43,13 +43,22 @@ class PortablePredictor:
     def __init__(self, folder):
         folder=Path(folder)
         self.spec=json.loads((folder/'model.json').read_text())
-        if self.spec['schema_version']!=1: raise ValueError('Unknown model schema')
+        if self.spec['schema_version'] not in (1,2): raise ValueError('Unknown model schema')
         self.transfer=CoreTransfer.load(folder/'reference.npz')
         with np.load(folder/'preparation.npz',allow_pickle=False) as z:
             self.prep={k:z[k] for k in z.files}
 
     def predict(self, values, probe_ids):
         genes,matrix,_=self.transfer.transform(values,np.isfinite(values),probe_ids)
+        if self.spec['schema_version']==2:
+            selected = np.searchsorted(genes,self.prep['genes'])
+            if np.any(selected>=len(genes)) or not np.array_equal(genes[selected],self.prep['genes']):
+                raise ValueError('Selected gene missing from the portable reference')
+            x=matrix[selected].T
+            x=(np.where(np.isfinite(x),x,self.prep['medians'])-self.prep['mean'])/self.prep['scale']
+            result=numeric_predict(self.spec['estimator'],x)
+            if not np.isfinite(result).all(): raise ValueError('Nonfinite prediction')
+            return result
         if not np.array_equal(genes,self.prep['gene_ids']): raise ValueError('Gene order mismatch')
         selected=self.prep['selected']
         x=matrix.T[:,selected]

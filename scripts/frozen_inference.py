@@ -7,8 +7,13 @@ from core_transfer import CoreTransfer
 from portable_model import numeric_predict
 
 METHODS = ('A','B','C','D','elastic_net','pls','gradient_boosting','median_null')
+WBC_BOOSTING = 'gradient_boosting_wb_wbc'
+WBC_FILE = 'frozen-gb-wbc-v1.json'
+WBC_SHA256 = '1c6ee67740a712f4964f6be8576f2c521ed6f3e676c91cca39abc98a5e1d08c0'
 MAX_INPUT_BYTES = 800_000
 ADAPTER = 'core-agilent-background-v1'
+HELD_OUT_FOLDER = 'held-out-examples-v1'
+HELD_OUT_MANIFEST_SHA256 = 'caf11a070d9a03ed822dda78be9544a144dd25fd335e55be0ea6bc6d8d5eebad'
 LIMITATIONS = [
     'Research use only; not for clinical decisions.',
     'Study-associated bias and high-dose underprediction remain unresolved.',
@@ -51,12 +56,63 @@ class FrozenInference:
             with np.load(self.folder/f'{rep}-features.npz',allow_pickle=False) as z:
                 self.features[rep]={k:z[k] for k in z.files}
         self.models=json.loads((self.folder/'models.json').read_text())
-        self.curated={row['sha256']:row for row in self.manifest['examples']}
+        self.wbc_bundle = None
+        wbc_path = self.folder.parent / WBC_FILE
+        if wbc_path.exists():
+            raw = wbc_path.read_bytes()
+            if digest(raw) != WBC_SHA256:
+                raise ValueError('Frozen WBC model integrity failure')
+            bundle = json.loads(raw)
+            if (bundle['base_release_sha256'] != self.release_sha or bundle['model'] != WBC_BOOSTING
+                    or bundle['schema_version'] != 1):
+                raise ValueError('WBC model and preprocessing release mismatch')
+            self.wbc_bundle = bundle
+            self.models[WBC_BOOSTING] = bundle['spec']
+        # Examples can be added without changing the model identity used by saved approvals and estimates.
+        self.example_index = {row['id']: (self.folder, row) for row in self.manifest['examples']}
+        extra = self.folder.parent / HELD_OUT_FOLDER
+        if extra.exists():
+            raw = (extra / 'manifest.json').read_bytes()
+            if digest(raw) != HELD_OUT_MANIFEST_SHA256:
+                raise ValueError('Held-out example manifest integrity failure')
+            supplement = json.loads(raw)
+            if supplement['schema_version'] != 1 or supplement['release_sha256'] != self.release_sha:
+                raise ValueError('Held-out examples belong to a different model release')
+            for row in supplement['examples']:
+                path = (extra / row['file']).resolve()
+                if (path.parent != extra.resolve() or row['id'] in self.example_index
+                        or row['training_overlap'] is not False or digest(path.read_bytes()) != row['sha256']):
+                    raise ValueError('Held-out example integrity failure')
+                self.example_index[row['id']] = (extra, row)
+        self.curated = {row['sha256']: row for _, row in self.example_index.values()}
 
-    def catalog(self):
+    def example_bytes(self, sample):
+        if sample not in self.example_index:
+            raise FileNotFoundError()
+        directory, row = self.example_index[sample]
+        payload = (directory / row['file']).read_bytes()
+        if digest(payload) != row['sha256']:
+            raise ValueError('Example profile integrity failure')
+        return payload
+
+    def model_release(self, method=None):
+        if method is not None and (not isinstance(method,str) or method not in self.models):
+            raise ValueError('Unsupported frozen model')
+        if method == WBC_BOOSTING:
+            return self.wbc_bundle['release'], WBC_SHA256
+        return self.manifest['release'], self.release_sha
+
+    def catalog(self, *, prediction_picker=False):
+        methods = list(METHODS)
+        scopes = {}
+        if prediction_picker:
+            if self.wbc_bundle is None:
+                raise RuntimeError('Frozen WBC model is unavailable')
+            methods[methods.index('gradient_boosting')] = WBC_BOOSTING
+            scopes[WBC_BOOSTING] = WBC_SHA256
         return dict(release=self.manifest['release'],release_sha256=self.release_sha,
-                    methods=list(METHODS),adapter=ADAPTER,max_input_bytes=MAX_INPUT_BYTES,
-                    examples=self.manifest['examples'],limitations=LIMITATIONS,
+                    methods=methods,model_release_overrides=scopes,adapter=ADAPTER,max_input_bytes=MAX_INPUT_BYTES,
+                    examples=list(self.curated.values()),limitations=LIMITATIONS,
                     input_status='New inputs require a server-side compatibility review.',
                     supported_scope='Human whole blood, ex vivo X-ray/gamma or matched controls, audited approximately 24 hours; reviewed Agilent adapter only.')
 
@@ -117,7 +173,7 @@ class FrozenInference:
         return panels,dict(selected_gene_missing=missing,preprocessing='Frozen equal-study masked quantile reference → log2 → median probe-to-GeneID mapping → fixed 500-gene panel, training medians/scaling; rank representation for D/PLS.')
 
     def predict_values(self,method,panels):
-        if method not in METHODS:raise ValueError('Unsupported frozen model')
+        if not isinstance(method,str) or method not in self.models:raise ValueError('Unsupported frozen model')
         m=self.models[method]
         if method=='median_null':return np.full(len(panels['log2']),m['value'])
         x=panels[m['representation']];spec=m['estimator']
@@ -137,8 +193,9 @@ class FrozenInference:
         if qc['blockers']:raise ValueError('Input is incompatible; no dose estimate')
         panels,_=self.panels(x)
         value=float(self.predict_values(method,panels)[0]);m=self.models[method]
+        release, release_sha = self.model_release(method)
         return dict(estimate_gy=value,model=method,seed=m.get('seed'),model_sha256=m['source_sha256'],
-                    release=self.manifest['release'],release_sha256=self.release_sha,
+                    release=release,release_sha256=release_sha,
                     input_sha256=digest(encode(body)),sample_id=body['sample_id'],qc=qc,
                     outside_training_dose_range=not 0<=value<=8,individual_prediction_interval=None,
                     limitations=LIMITATIONS)

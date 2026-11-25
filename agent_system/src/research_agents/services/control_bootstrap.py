@@ -41,7 +41,7 @@ def coordinator_app():
     credentials = cloud_credentials()
     store = GcsControlStore(p['control_bucket'], 'copilot/v1/' + config.workspace + '/',
                             client=storage.Client(project=p['project'], credentials=credentials))
-    ledger = Ledger(store, config.workspace, max_runs=config.max_runs, max_chats=config.max_chats)
+    ledger = Ledger(store, config.workspace, max_runs=config.max_runs, max_chats=config.max_chats, team_demo=True)
     memberships = Memberships(policy, store)
     access = AccessPolicy(memberships.grant)
     auth = IapAuthenticator(p['iap_audience'], policy.emails, on_authenticated=memberships.bind,

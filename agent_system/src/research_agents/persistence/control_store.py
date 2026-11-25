@@ -12,9 +12,9 @@ CONTROL_OPS = "_control_ops"
 
 
 def record_limit(key):
-    # Finite 240-turn pilot ledger needs room for retained audit receipts.
-    # Other control documents keep their original cap; no unbounded growth.
-    return 2_000_000 if key == "ledger.json" else 1_000_000
+    # The signed-in ledger retains detailed receipts for up to 2,000 additional
+    # demo turns. Guest daily ledgers and other documents stay independently bounded.
+    return 48_000_000 if key == "ledger.json" else 1_000_000
 
 
 def competing_write_proven(value, latest):

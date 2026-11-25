@@ -1,8 +1,7 @@
 # Google Cloud setup
 
-Use the [production application](https://defender-research-460004627518.us-west1.run.app/) to review the
-existing release. This guide describes provisioning a separate deployment in your
-own project. It grants no access to the hosted research data.
+The [project README](../README.md) lists both hosted workspaces. This guide covers a
+separate deployment in an operator-managed Google Cloud project.
 
 Source tests run without cloud access. A complete scientific deployment also needs
 audited datasets, frozen models, generated frontend exports and protected policies,
@@ -214,6 +213,5 @@ are ready. App membership checks apply in addition to Google IAP.
    smoke test is not independent clinical or scientific validation.
 
 See `app/REVIEWER_DEMO.md` and `docs/TESTING.md`. Changes to this separate deployment
-do not update the shared live app. A separate public static explorer additionally
-needs a reviewed generated export; see `app/public/vercel.json` and
-`app/entry-router/README.md`. Publishing source alone does not supply that data.
+do not update the shared live app. The guest dashboard uses a
+Cloudflare Worker with a static asset binding and D1. [Guest workspace setup](../app/entry-router/README.md)

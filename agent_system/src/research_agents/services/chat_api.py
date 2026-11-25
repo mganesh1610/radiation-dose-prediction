@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from ..contracts.chat import CreateChat,SendMessage,EmptyBody
 from ..persistence.control_store import Conflict,QuotaExceeded
+from ..persistence.ledger import DailyTeamLimit
 from ..persistence.preferences import PreferenceChange, PreferenceDelete
 from .startup_timing import phase
 
@@ -60,10 +61,20 @@ def create_app(service, authenticator, preferences=None, protocol_enabled=False,
         return response
 
     for error,code,message in [(PermissionError,403,"Access denied"),(FileNotFoundError,404,"Record not found"),
-            (Conflict,409,"State changed; retry the same request"),(QuotaExceeded,429,"Pilot allowance or concurrency limit reached"),
+            (Conflict,409,"State changed; retry the same request"),
+            (QuotaExceeded,429,"Pilot allowance or concurrency limit reached"),
             (ValidationError,400,"Unsupported request"),(ValueError,400,"Invalid request"),(RuntimeError,503,"Service unavailable; retry the same request")]:
         async def handler(request, exc, status=code, text=message):return JSONResponse({"error":text},status_code=status)
         app.add_exception_handler(error,handler)
+
+    @app.exception_handler(DailyTeamLimit)
+    async def daily_limit(request, exc):
+        return JSONResponse({"code":"team_quota", "error":"The team has reached its daily Gemini quota. It resets at midnight Phoenix time."}, status_code=429)
+
+    @app.get("/api/copilot/quota")
+    async def quota(request:Request):
+        await asyncio.to_thread(service.authorize,request.state.principal)
+        return {"quota":await asyncio.to_thread(service.ledger.team_quota)}
 
     @app.get("/api/copilot/status")
     async def status(request:Request):

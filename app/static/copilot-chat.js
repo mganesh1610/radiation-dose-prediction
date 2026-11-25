@@ -250,7 +250,7 @@
       const box = el('div', undefined, 'copilot-welcome');
       box.append(el('p', 'RADIATION RESEARCH', 'copilot-welcome-kicker'), el('h1', 'Explore the evidence.'), el('p', records ? 'Ask about the studies, models, and published results.' : 'Ask about samples, recorded doses, and gene expression.', 'copilot-welcome-description'));
       const suggestions = records ? [
-        ['Compare the models', 'Did Model A outperform B, C and D?', 'flask'],
+        ['Compare the models', 'What is the final test MAE for Model A (whole-blood neural regression)?', 'flask'],
         ['Understand the data', 'Did clustering improve prediction?', 'database'],
         ['Look up a sample', 'What is the dose for GSM2751831?', 'magnifying-glass']
       ] : [

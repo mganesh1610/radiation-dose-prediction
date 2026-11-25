@@ -9,6 +9,18 @@ PRESETS = {'median_null':{}, 'elastic_net':{'k':100,'alpha':0.1,'l1_ratio':0.5},
            'gradient_boosting':{'k':100,'max_depth':1,'n_estimators':100}}
 
 
+COMBINED_DATASET = {'object': 'training/v1/releases/combined_49b005e7a200c04c/combined.npz', 'generation': '1795425840408904', 'sha256': '49b005e7a200c04c1c55f337040516665c7f935ff280262c4c8982145646603d', 'bytes': 1997428}
+
+
+def training_version(dataset):
+    return 2 if dataset['object'].split('/')[-1] == 'combined.npz' else 1
+
+
+def job_request(body, dataset):
+    return dict(body, schema_version=training_version(dataset), purpose='engineering_smoke',
+                dataset=dataset, parameters=PRESETS[body['method']])
+
+
 def identifier(value):
     if not isinstance(value,str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,80}', value):
         raise ValueError('Invalid identifier')
@@ -41,18 +53,19 @@ def validate_job(job):
     if set(job) != {'schema_version','job_id','dataset','method','holdout_study','purpose','parameters'}:
         raise ValueError('Unexpected job fields')
     identifier(job['job_id'])
-    if (job['schema_version'] != 1 or job['purpose'] != 'engineering_smoke'
+    if (job['schema_version'] not in (1, 2) or job['purpose'] != 'engineering_smoke'
             or job['method'] not in METHODS or job['holdout_study'] not in CORE
             or job['parameters'] != PRESETS[job['method']]):
         raise ValueError('Unsupported method, parameters or scientific run; only bounded smoke jobs enabled')
     ref=job['dataset']
     if set(ref) != {'object','generation','sha256','bytes'}:
         raise ValueError('Invalid dataset reference')
-    if not re.fullmatch(r'training/v1/releases/core_[a-f0-9]{16}/core.npz',ref['object']):
-        raise ValueError('Dataset outside core release path')
+    kind = 'combined' if job['schema_version'] == 2 else 'core'
+    if not re.fullmatch(r'training/v1/releases/'+kind+r'_[a-f0-9]{16}/'+kind+r'\.npz',ref['object']):
+        raise ValueError('Dataset outside the job release path')
     if not str(ref['generation']).isdigit() or not re.fullmatch('[a-f0-9]{64}',ref['sha256']):
         raise ValueError('Dataset generation/hash required')
-    if ref['object'].split('/')[3] != 'core_'+ref['sha256'][:16]:
+    if ref['object'].split('/')[3] != kind+'_'+ref['sha256'][:16]:
         raise ValueError('Release ID does not match content hash')
     if not isinstance(ref['bytes'],int) or not 0 < ref['bytes'] < 80_000_000:
         raise ValueError('Invalid dataset size')

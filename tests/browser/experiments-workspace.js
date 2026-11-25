@@ -1,104 +1,161 @@
-// With Playwright and Chromium installed, run: node --test tests/browser/experiments-workspace.js
-// The public page loads its normal scripts. Only the result records are synthetic.
-'use strict';
-const { after, before, test } = require('node:test');
-const assert = require('node:assert/strict');
-const path = require('node:path');
-const { chromium } = require('playwright');
-
-const app = path.resolve(__dirname, '../../app');
-const origin = 'http://defender.test';
-const dataPath = '/data/00000000000000000000';
-const excluded = ['xgboost', 'random_forest', 'svr_rbf'];
-let browser;
-before(async () => { browser = await chromium.launch({channel: process.env.PLAYWRIGHT_CHANNEL || undefined}); });
-after(async () => { await browser?.close(); });
-
-function makeResults(version, extraLowScore) {
-  const combined = 'gradient_boosting_wb_wbc';
-  const ids = [...excluded, combined, 'at_cutoff', 'different_fit', ...Array.from({length: 14}, (_, i) => 'fit_' + i)];
-  const regression = ids.map((model, i) => ({
-    model, label: model, family: model === combined || i < 2 ? 'Ensemble' : 'Linear', mae_gy: 1 + i / 20
-  }));
-  const data = {schema_version: version, release_id: 'browser-test', purpose: 'test', core_profiles: 145,
-    eligible_profiles: 567, final_test_included: false, regression, classification: []};
-  if (version >= 2) {
-    data.wbc_profiles = 422;
-    data.held_out_profiles = 145;
-    data.matched_gradient_boosting = {rows: [regression[3], {model: 'gradient_boosting', label: 'Whole blood only', mae_gy: 2}]};
-  }
-  if (version === 3) {
-    const models = Object.fromEntries(regression.map(r => [r.model, {mae_gy: 1}]));
-    models.at_cutoff.mae_gy = 0.770;
-    models.different_fit.mae_gy = extraLowScore ? 0.7699 : 0.7701;
-    data.retrospective_evaluation = {study: 'GSE90909', profiles: 52, donors: 12, run_date: '2026-01-01',
-      models, fixed_whole_blood_control: {mae_gy: 1.5}};
-  }
-  return data;
-}
-
-async function serveFixtures(page, data) {
-  await page.route('**/*', async route => {
-    const url = new URL(route.request().url());
-    if (url.origin !== origin) return route.abort();
-    if (url.pathname === '/') return route.fulfill({path: path.join(app, 'public/index.html')});
-    if (url.pathname === '/data/publication.json') {
-      return route.fulfill({json: {schema_version: 1, data_path: dataPath, published_date: '2026-01-01', profiles: 145}});
+async (page) => {
+  const root = new URL(page.url()).origin;
+  const checks = [];
+  const errors = [];
+  const recordError = error => errors.push(error.message);
+  page.on('pageerror', recordError);
+  function check(name, actual, expected) {
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+      throw new Error(name + ' — expected ' + JSON.stringify(expected) + ', received ' + JSON.stringify(actual));
     }
-    if (url.pathname === dataPath + '/development-results.json') return route.fulfill({json: data});
-    if (url.pathname.startsWith('/static/')) {
-      const file = url.pathname.slice('/static/'.length);
-      const dir = ['public-data.js', 'public-results.js', 'public.css'].includes(file) ? 'public' : 'static';
-      return route.fulfill({path: path.join(app, dir, file)});
-    }
-    return route.fulfill({status: 404, json: {error: 'No fixture for this resource'}});
-  });
-}
+    checks.push(name);
+  }
+  async function download(button) {
+    const pending = page.waitForEvent('download');
+    await button.click();
+    const stream = await (await pending).createReadStream();
+    let text = '';
+    for await (const chunk of stream) text += chunk.toString('utf8');
+    return JSON.parse(text);
+  }
+  const byId = id => page.locator('#' + id);
+  const tab = name => page.getByRole('tab', { name, exact: true });
+  const card = byId('reviewer-card-dialog');
+  const development = tab('Development comparison');
+  const final = tab('Final evaluation');
+  const training = tab('Training');
+  const gridValues = id => byId(id).locator('tbody td.exp-mae-cell').allTextContents();
+  const checkTab = async (target, panel) => {
+    check(panel + ' tab selected', await target.getAttribute('aria-selected'), 'true');
+    check(panel + ' is the visible panel', await page.locator('#page-experiments [role=tabpanel]:visible').evaluateAll(nodes => nodes.map(n => n.id)), [panel]);
+  };
 
-for (const [version, width, extraLowScore] of [[3, 1440, false], [3, 390, true], [2, 1440, false], [1, 390, false]]) {
-  test(`Development comparison · schema ${version} · ${width}px`, async () => {
-    const data = makeResults(version, extraLowScore);
-    const page = await browser.newPage({viewport: {width, height: 900}});
-    try {
-      await serveFixtures(page, data);
-      await page.goto(origin + '/?comparison=development#experiments');
-      const grid = page.locator('#development-regression');
-      const names = grid.locator('tbody th');
-      await names.first().waitFor();
-      const shown = data.regression.filter(r => !excluded.includes(r.model) && !(extraLowScore && r.model === 'different_fit'));
-      assert.deepEqual(await names.allTextContents(), shown.map(r => r.label));
-      assert.deepEqual(await grid.locator('thead th').allTextContents(), ['Model', 'Development MAE (Gy)', 'GSE90909 MAE (Gy)']);
-      assert.match(await page.locator('#model-count').innerText(), new RegExp(shown.length + ' of 20'));
-      const evaluation = data.retrospective_evaluation;
-      const externalScores = shown.map(r => evaluation ? evaluation.models[r.model].mae_gy.toFixed(3) : '—');
-      assert.deepEqual(await grid.locator('.exp-external-mae').allTextContents(), externalScores);
-      await grid.locator('.exp-dev-sort').click();
-      assert.deepEqual(await names.allTextContents(), shown.map(r => r.label).reverse());
-      assert.equal(await grid.locator('th[aria-sort]').getAttribute('aria-sort'), 'descending');
-      await page.locator('#development-family').selectOption('Ensemble');
-      assert.deepEqual(await names.allTextContents(), ['gradient_boosting_wb_wbc']);
-      assert.equal(await page.locator('#matched-boosting').isVisible(), version >= 2);
-      if (evaluation) {
-        assert.deepEqual(await page.locator('#matched-boosting-table .exp-external-mae').allTextContents(), ['1.000', '1.500']);
-      } else {
-        assert.match(await page.locator('#comparison-run-date').innerText(), /unavailable/i);
+  try {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(root + '/#experiments');
+    await byId('reviewer-loaded').waitFor();
+    await checkTab(final, 'reviewer-results');
+    const result = await download(byId('reviewer-download'));
+    const displayed = result.model_cards.filter(model => model.id !== 'gradient_boosting');
+    const sorted = displayed.map(model => ({
+      id: model.id, score: model.scores.find(s => s.seed === model.primary_seed),
+    })).sort((a, b) => a.score.donor_mae - b.score.donor_mae);
+    const ids = sorted.map(row => row.id);
+    const order = () => byId('reviewer-neural').locator('button[data-model]').evaluateAll(buttons => buttons.map(b => b.dataset.model));
+    check('Complete final evaluation download', [result.evaluated_date, result.profiles, result.donors, result.model_cards.length, result.model_cards.flatMap(m => m.scores).length], ['2026-11-22', 52, 12, 9, 21]);
+    check('Eight displayed models ranked by their exported primary scores', await order(), ids);
+    const combined = byId('reviewer-neural').locator('tr').filter({has: page.locator('button[data-model="gradient_boosting_wb_wbc"]')});
+    check('Combined boosting shows its donor-balanced MAE in the ranking, default details and download',
+      [await combined.locator('td.exp-mae-cell > span').first().textContent(), await byId('exp-mae').textContent(),
+       sorted.find(row => row.id === 'gradient_boosting_wb_wbc').score.donor_mae.toFixed(3)], ['0.777', '0.777', '0.777']);
+    check('Displayed errors agree with all exported models', await byId('reviewer-neural').locator('td.exp-mae-cell > span:first-child').allTextContents(), sorted.map(r => r.score.donor_mae.toFixed(3)));
+    check('Only the whole-blood boosting row is omitted', [ids.length, ids[0], await byId('reviewer-neural').locator('[data-model="gradient_boosting"]').count()], [8, 'gradient_boosting_wb_wbc', 0]);
+    await byId('exp-sort').click();
+    check('Descending rank order', await order(), [...ids].reverse());
+    await byId('exp-sort').click();
+    for (const row of sorted) {
+      await page.locator('button[data-model="' + row.id + '"]').click();
+      check('Selected details agree with ' + row.id, [await byId('exp-mae').textContent(), await byId('exp-ci').textContent()],
+        [row.score.donor_mae.toFixed(3), row.score.mae_ci.low.toFixed(3) + ' – ' + row.score.mae_ci.high.toFixed(3) + ' Gy']);
+    }
+    await byId('reviewer-open-card').click();
+    await card.waitFor();
+    const cardResult = await download(byId('reviewer-download-card'));
+    check('Card download matches selected model', cardResult.model, result.model_cards.find(m => m.id === ids.at(-1)));
+    await page.keyboard.press('Escape');
+    await card.waitFor({ state: 'hidden' });
+    await final.focus();
+    await page.keyboard.press('ArrowRight');
+    await byId('development-family').waitFor();
+    await checkTab(development, 'development-comparisons');
+    check('Initial model family', await byId('development-family').inputValue(), 'all');
+    check('Every displayed predictor has a final-cohort score', await byId('development-regression').locator('td.exp-external-mae').count(), 17);
+    await byId('development-family').selectOption('Ensemble');
+    check('Ensemble GSE90909 errors', await byId('development-regression').locator('td.exp-external-mae').allTextContents(), ['0.777', '0.951']);
+    check('Two visible tuned ensemble results', await gridValues('development-regression'), ['2.180', '2.442']);
+    check('Fixed-settings comparison', await gridValues('matched-boosting-table'), ['2.016', '2.669']);
+    await byId('development-regression').locator('.exp-dev-sort').click();
+    check('Tuned sort works independently of the fixed pair', await gridValues('development-regression'), ['2.442', '2.180']);
+    await byId('development-family').selectOption('Linear');
+    check('Pair is hidden for another family', await byId('matched-boosting').isVisible(), false);
+    await byId('development-family').selectOption('all');
+    check('All 17 visible predictors available', (await gridValues('development-regression')).length, 17);
+    await page.locator('.exp-classifiers > summary').click();
+    check('Three exposure classifiers', await byId('development-classification').locator('tbody tr').count(), 3);
+    await byId('development-download').click();
+    const data = await download(page.getByRole('button', { name: 'Save JSON' }));
+    check('Development export identifies its holdouts', [data.regression.length, data.matched_gradient_boosting.rows.length, data.eligible_profiles, data.wbc_profiles, data.held_out_profiles, data.development_scores_include_final_test], [20, 2, 567, 422, 145, false]);
+    check('Retrospective export covers all 20 combined fits', [Object.keys(data.retrospective_evaluation.models).length,
+      data.retrospective_evaluation.profiles, data.retrospective_evaluation.donors, data.retrospective_evaluation.retrospective], [20, 52, 12, true]);
+    await page.getByRole('button', { name: 'Close export' }).click();
+    await page.locator('dialog.development-export').waitFor({ state: 'detached' });
+    await development.press('End');
+    await checkTab(training, 'engineering-demo');
+    if (await byId('train-form').count()) {
+      await page.waitForFunction(() => document.getElementById('split-fit').textContent.includes('profiles to fit'));
+      for (const [study, fit, heldOut] of [['GSE8917', 542, 25], ['GSE65292', 547, 20], ['GSE102971', 467, 100]]) {
+        await byId('study').selectOption(study);
+        check('Training split for ' + study, [await byId('split-fit').textContent(), await byId('split-test').textContent()], [fit + ' profiles to fit', heldOut + ' held out']);
       }
-      // Export from the filtered view, including all hidden predictors and their original scores.
-      await page.locator('#development-download').click();
-      const saved = page.waitForEvent('download');
-      await page.getByRole('button', {name: 'Save JSON'}).click();
-      const stream = await (await saved).createReadStream();
-      const chunks = [];
-      for await (const chunk of stream) chunks.push(chunk);
-      const result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      assert.deepEqual(result.regression, data.regression);
-      assert.deepEqual(result.retrospective_evaluation, evaluation);
-      assert.deepEqual(result.matched_gradient_boosting, data.matched_gradient_boosting);
-      await page.getByRole('button', {name: 'Close export'}).click();
-      await page.locator('#development-family').selectOption('Linear');
-      assert.equal(await page.locator('#matched-boosting').isVisible(), false);
-    } finally {
-      await page.close();
+      check('Training pool', await page.locator('.exp-cohort dd:nth-child(2)').allTextContents(), ['567', '145', '422']);
+      await byId('refresh').click();
+      await page.waitForFunction(() => document.getElementById('allowance').textContent.includes(' of '));
+    } else {
+      await byId('published-runs').getByRole('button').first().waitFor();
+      check('Published training result is available', await byId('results').isVisible(), true);
     }
-  });
+    await page.goBack();
+    await checkTab(development, 'development-comparisons');
+    await page.goForward();
+    await checkTab(training, 'engineering-demo');
+    await page.setViewportSize({ width: 393, height: 845 });
+    const guest = await byId('guest-training').count() > 0;
+    await page.goto(root + '/?model=gradient_boosting#experiments');
+    if (guest) {
+      await byId('reviewer-loaded').waitFor();
+      check('Guest router returns an archived model link to the default result', [
+        new URL(page.url()).searchParams.get('model'), await byId('exp-mae').textContent()
+      ], [null, '0.777']);
+      const archived = result.model_cards.find(model => model.id === 'gradient_boosting');
+      check('Guest export retains the whole-blood reference',
+        archived.scores.find(score => score.seed === archived.primary_seed).donor_mae.toFixed(3), '0.795');
+    } else {
+      await card.waitFor();
+      check('Existing whole-blood model link opens its own result', await card.locator('.exp-big-value span').textContent(), '0.795');
+      await byId('reviewer-close-card').click();
+      await card.waitFor({ state: 'hidden' });
+    }
+    check('Returning from the linked model restores the eight-row ranking', await order(), ids);
+    await page.goto(root + '/?model=gradient_boosting_wb_wbc#experiments');
+    await byId('reviewer-loaded').waitFor();
+    const selected = page.locator('button[data-model="gradient_boosting_wb_wbc"]');
+    await selected.click();
+    await card.waitFor();
+    const bounds = await card.boundingBox();
+    check('Mobile detail fills the viewport from its top left', [bounds.x, bounds.y, bounds.width, bounds.height], [0, 0, 393, 845]);
+    check('Mobile details show selected error', await card.locator('.exp-big-value span').textContent(), '0.777');
+    await byId('reviewer-close-card').click();
+    await card.waitFor({ state: 'hidden' });
+    check('Mobile Back restores selection and keyboard focus', await selected.evaluate(b => b === document.activeElement && b.getAttribute('aria-pressed') === 'true'), true);
+    await page.goForward();
+    await card.waitFor();
+    await page.reload();
+    await card.waitFor();
+    await page.goBack();
+    await card.waitFor({ state: 'hidden' });
+    await development.click();
+    await byId('development-family').selectOption('Ensemble');
+    check('Mobile comparison shows only the two MAE measures',
+      await byId('development-regression').locator('thead th').allTextContents(),
+      ['Model', 'Development MAE (Gy)', 'GSE90909 MAE (Gy)']);
+    await development.focus();
+    await page.keyboard.press('Home');
+    await checkTab(final, 'reviewer-results');
+    check('Page remains within the mobile viewport', await page.evaluate(() => document.documentElement.scrollWidth), 393);
+    check('Last evaluation date', await page.locator('.main-footer time').innerText(), 'Last evaluated 22 Nov 2026');
+    check('Browser errors', errors, []);
+    return { status: 'passed', checks };
+  } finally {
+    page.off('pageerror', recordError);
+  }
 }

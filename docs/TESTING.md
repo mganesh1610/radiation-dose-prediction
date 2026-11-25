@@ -51,3 +51,12 @@ process per module because PyTorch and
 XGBoost can load incompatible OpenMP runtimes into a shared macOS process. This
 keeps the native runtimes isolated without disabling their safeguards. The runner
 reports any failing module and preserves explicit artifact skip messages.
+
+
+## Dashboard checks
+
+The local guest preview uses the versioned public records and served estimates. The
+published model score can be checked under **Experiments → Final evaluation** in
+the ranking, model card and JSON download. The versioned browser checks in
+`tests/browser/` cover final and development comparisons, keyboard and mobile
+navigation, filtering, exports and model-card details. [Preview setup](../README.md#local-setup)

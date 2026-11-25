@@ -1,159 +1,79 @@
-# Radiation Dose Prediction from Human Gene Expression
+# Team Defender · Radiation dose prediction from blood gene expression
 
-## Open the live application
+**[Production research workspace · Google Cloud Run](https://defender-research-460004627518.us-west1.run.app/)** · Approved researchers can analyze studies, review uploads, run frozen models and work with the research copilot.
 
-**[Launch the production research workspace →](https://defender-research-460004627518.us-west1.run.app/)**
+**[Public research dashboard · Cloudflare](https://prod.defender-asu.workers.dev/)** · Open access to the study explorer, model comparisons, published predictions and guest workspace.
 
-Explore the datasets, PCA, clustered heatmaps, model comparisons and published
-findings in your browser. The main workspace requires an approved Google sign-in;
-no local installation is needed.
+Team Defender studies how accurately changes in gene activity in human blood can estimate a known laboratory radiation dose. The project combines six development studies, a separate evaluation study and a web application that lets researchers trace an estimate back to its model and study.
 
-- [Public read-only research snapshot](https://defender-research-public.vercel.app/)
-- [Alternate public snapshot](https://radiation-prediction-4ffe5.web.app/)
-- [Public guest dashboard](https://prod.defender-asu.workers.dev/)
-- [Research copilot](https://defender-research-460004627518.us-west1.run.app/#assistant)
+## Research result
 
-Cloud-tool chat, uploads, predictions and Mac training require a separately
-approved Google sign-in. Repository access does not grant application access.
-The public snapshots remain available without application access; their structured
-assistant and the authenticated multi-agent chatbot are different interfaces.
+On the GSE90909 evaluation cohort, gradient boosting trained on **145 whole-blood profiles and 422 white blood cell (WBC) profiles** had a **donor-balanced mean absolute error of 0.777 Gy**. Each of the 12 donors counted equally across the 52 profiles. The 95% donor-bootstrap interval was **0.550–1.052 Gy**. The whole-blood-only boosting model scored 0.795 Gy and Model B, the best of the four neural approaches on this run, scored 1.160 Gy.
 
-**Prefer to run the code?** Start with [local setup](#local-setup). To provision
-your own infrastructure, follow [Google Cloud setup](docs/GOOGLE_CLOUD_SETUP.md).
+The comparison with added WBC data was retrospective. It used the same previously evaluated profiles, so the small difference between boosting models still needs validation in new donors. These estimates describe research performance at approximately 24 hours after laboratory exposure. Clinical accuracy has not been established.
 
-## About the project
+## Inside the application
 
-Research software for radiation-dose prediction from human blood gene-expression
-profiles, combining donor-aware machine learning, a scientific dashboard and an
-authenticated Google ADK research copilot.
+| Section | What it shows |
+| --- | --- |
+| Overview | The six development studies, their roles and the separate final evaluation cohort |
+| Datasets | Searchable study profiles, recorded doses and a CSV export of the filtered results |
+| Analysis | Principal component plots, heatmaps, correlations, quality checks and clustering. Height in the spatial PCA view represents recorded dose. |
+| Experiments | Final evaluation with donor-level error intervals, model cards and a full JSON export. Separate tabs cover development comparisons and training jobs. |
+| Predictions | Estimated and recorded dose for curated study profiles. The team workspace also supports reviewed uploads and frozen-model inference. |
+| Assistant | Published answers with sources and a guest question workflow. The signed-in workspace adds a Google ADK coordinator, an evidence specialist and controlled research tools. |
 
-- **ML pipeline:** raw-array processing, assay QC, frozen normalization,
-  probe-to-gene mapping, training-only feature selection and model export.
-- **Model comparison:** matched A–D neural strategies, classical regressors and
-  exploratory clustering, with study holdouts and donor grouping.
-- **Scientific interface:** dataset filters, automatic PCA, optional spatial
-  presentation, hierarchical heatmaps, correlations, quality review, clustering,
-  model cards and separate development/final views. Spatial height shows the
-  recorded dose; it is not a third PCA component or a model prediction.
-- **Agent system:** Research Coordinator and remote Evidence Specialist over A2A,
-  controlled SQL, verified matrix retrieval/cache, managed Sessions, explicit
-  preference memory and cited protocol retrieval.
-- **Application engineering:** Cloud Run APIs, Cloud Storage coordination,
-  BigQuery metadata, compatibility-gated prediction and bounded Mac training.
-
-The primary frozen A–D comparison did not support Model A superiority. The
-GSE90909 final evaluation is consumed and must not be reused for model tuning.
-These are research estimates, not clinically validated dose measurements.
+The final evaluation table displays eight models. Its download includes all nine model cards, including the whole-blood-only boosting reference. The development table has its own display filters and exports results for all 20 predictors.
 
 ## Local setup
 
-### 1. Clone and create an isolated source-test environment
+### Guest dashboard preview
 
-Use Python **3.12** and Node.js **20 or newer**. Keep any existing scientific or
-training environment unchanged.
+A local preview uses the interface from this repository and downloads the release-matched records already available on the public dashboard. It requires Python 3.12, Node.js 22 or newer and a network connection during setup. The prediction examples use saved estimates. The assistant’s published answers, charts and model comparisons work with the downloaded release.
 
 ```sh
 git clone https://github.com/mganesh1610/radiation-dose-prediction.git
 cd radiation-dose-prediction
+python3.12 scripts/prepare_public_preview.py
+npx --yes wrangler@4.147.0 d1 execute GUEST_DB --local --config app/entry-router/wrangler.jsonc --file app/entry-router/guest-schema.sql
+npx --yes wrangler@4.147.0 dev --local --config app/entry-router/wrangler.jsonc
+```
+
+Wrangler prints the local address. Training jobs and live AI answers require a separately configured worker. The preview needs no cloud account or model weights. [Guest workspace setup](app/entry-router/README.md)
+
+### Scientific source and tests
+
+```sh
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-test.txt
 python -m pip check
-```
-
-On Windows, activate with `.venv\Scripts\Activate.ps1`. On macOS, XGBoost may
-need OpenMP (`brew install libomp`). The test dependencies include PyTorch and
-XGBoost; the hosted application is the quickest way to review research results.
-
-### 2. Run the source checks
-
-```sh
 python scripts/run_source_tests.py
-node --test tests/test_entry_router.mjs
-node tests/test_public_data.cjs
-node tests/test_assistant_records.cjs
-node tests/test_heatmap_clustering.cjs
-node tests/test_analysis_autoload.cjs
-node --test tests/test_spatial_analysis.mjs
+node --test tests/*.mjs tests/*.cjs
 ```
 
-Python modules run separately to avoid native PyTorch/XGBoost runtime collisions.
-Tests requiring excluded scientific artifacts explicitly skip when those artifacts
-are absent. This is not scientific validation; use `DEFENDER_REQUIRE_DATA_TESTS=1`
-only after provisioning the audited release. These checks do not deploy services,
-train new research models or call the paid model service. See [testing](docs/TESTING.md).
+The Python runner isolates modules that use native scientific libraries. Artifact-dependent tests report skips when their required inputs are absent. Windows activation uses `.venv\Scripts\activate`. On macOS, XGBoost can require the OpenMP runtime (`brew install libomp`). [Testing and reproduction](docs/TESTING.md)
 
-### 3. Run the offline agent checks in a separate environment
+The two-agent service has a separate Python environment and an offline test suite.
 
 ```sh
-deactivate
 python3.12 -m venv .venv-agents
 source .venv-agents/bin/activate
 python -m pip install -e 'agent_system[dev]'
-python -m pip check
 python -m pytest agent_system/tests
 ```
 
-The offline agent suite uses controlled fixtures and loopback services. It verifies
-software behavior, not live answer accuracy or capacity. Platform lock files and
-runtime entry points are in [agent_system/README.md](agent_system/README.md).
+## Google Cloud and repository guide
 
-### 4. Understand what a local clone can run
+Google Cloud Run hosts the team website, research coordinator and evidence specialist. Google Identity-Aware Proxy checks team access. BigQuery holds study metadata and protocol records. Cloud Storage holds versioned scientific inputs and job artifacts. Cloudflare serves the guest dashboard, and D1 records guest requests. A separate worker processes approved jobs. Deployment requires operator-managed identities, data releases and configuration. [Google Cloud setup](docs/GOOGLE_CLOUD_SETUP.md) · [Configuration reference](docs/CLOUD_CONFIGURATION.md)
 
-This repository contains implementation and tests. Datasets, trained models,
-generated record/result exports, real membership policies and credentials are
-provisioned separately. A clone can run the source checks; it is not a complete
-local copy of the hosted scientific release.
-
-For a complete application, an authorized operator must supply the audited data,
-frozen inference bundle, generated frontend exports and protected configuration.
-The API deliberately rejects requests without valid Google IAP identity and
-allowlist membership. Do not disable those checks to make a preview work.
-
-Read [the data workflow](docs/DATA_WORKFLOW.md), [configuration reference](docs/CLOUD_CONFIGURATION.md)
-and [Google Cloud setup](docs/GOOGLE_CLOUD_SETUP.md) before starting a cloud-backed
-application. Copy `.env.example` locally for your own values; the application does
-not load it automatically.
-
-## Google Cloud deployment
-
-Three Cloud Run services host the website, Coordinator and Evidence Specialist.
-Google IAP protects browser access; service identities protect internal hops.
-BigQuery stores metadata and protocol passages; Cloud Storage stores scientific
-objects, control records and private artifacts. Managed Sessions and Memory Bank
-provide chat history and explicit preferences.
-
-The [Google Cloud guide](docs/GOOGLE_CLOUD_SETUP.md) covers project/API setup,
-storage, warehouse schemas, service identities, protected configuration, container
-packaging, IAP and verification. It uses your own resource placeholders and grants
-no access to the hosted project's data. Cloud provisioning can incur charges;
-quotas and application allowances are not provider billing caps.
-
-## Repository map
-
-| Path | Purpose |
+| Directory | Contents |
 | --- | --- |
-| `app/` | Authenticated web API, frontend, static adapters and entry router |
-| `scripts/` | Acquisition/QC, preprocessing, models, inference, workers and exports |
-| `agent_system/` | Two-agent runtime, retrieval tools, access controls and tests |
-| `schemas/` | Versioned BigQuery table definitions |
-| `tests/` | Source, authentication, queue, prediction and publication checks |
-| `docs/` | Scientific scope, data workflow, cloud setup and reproduction limits |
+| `app/` | Team web API, both dashboard interfaces and the Cloudflare guest router |
+| `scripts/` | Data preparation, model training, evaluation, inference and website packaging |
+| `agent_system/` | Research agents, evidence tools, access controls and agent tests |
+| `schemas/` | BigQuery table definitions |
+| `tests/` | Scientific, API, publication and browser checks |
+| `docs/` | Scientific scope, data workflow and deployment guides |
 
-## Publication and reproducibility
-
-This is an independent public source release. Ongoing development is maintained
-separately. No old pull requests or private development history were imported.
-Publish selected, reviewed releases here rather than automatically mirroring
-private development history.
-
-Credentials, access lists, datasets, model artifacts, conversation memory, local
-reports, provenance and `AGENTS.md` files are excluded. Original proposal and
-presentation submissions are distributed separately. Public service URLs are
-navigation links, not access credentials.
-
-Root `vercel.json` disables automatic Git deployments. Publish the reviewed static
-export from its own prepared directory so a source push cannot replace the live
-dashboard with an incomplete checkout. Do not deploy the repository root.
-See [Cloudflare routing](app/entry-router/README.md), [scientific scope](docs/SUBMISSION.md)
-and [reviewer walkthrough](app/REVIEWER_DEMO.md).
+This public source release includes the application, tests and setup guides. Raw expression datasets, trained weights, account policies and credentials are provisioned separately. [Data workflow](docs/DATA_WORKFLOW.md) · [Scientific scope](docs/SUBMISSION.md)

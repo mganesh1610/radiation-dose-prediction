@@ -1,43 +1,19 @@
-# Google Cloud entry router
+# Cloudflare guest dashboard
 
-Open the [production research workspace](https://defender-research-460004627518.us-west1.run.app/) with an approved Google
-account to use the dashboard, analysis, predictions and research copilot.
+Cloudflare serves the public dashboard and its versioned scientific records. The team sign-in route opens the Google Cloud Run workspace. The [project README](../../README.md) lists both hosted sites and shows the local preview commands.
 
-The redirect behavior below describes the Worker implementation in this source
-release. The [hosted guest dashboard](https://prod.defender-asu.workers.dev/) also offers public research views.
+The guest dashboard supports all six workspace sections, published profile estimates and source-backed answers. A D1 database stores each guest's queued training and AI requests. An HTTP-only session cookie limits access to that browser's records. The team site handles authenticated uploads, private conversations and project administration.
 
-This replaces the earlier Vercel/Firebase public-viewer failover. Neither static
-hosting service is a routing destination. The optional `/links` page has only the
-Google Cloud application link. The older Vercel and Firebase projects are not
-deleted by this routing change.
+## Local development
 
-## Behavior
+The preview builder checks the publication, all 30 scientific records and the saved profile estimates against the release expected by this source. It composes the website from the repository templates, scripts, styles and media. Generated files stay in `data/shared_site/`. Each build uses a new directory, and existing builds can be retained by selecting another output with `--output`.
 
-- GET/HEAD navigation returns a noncacheable 302 to the fixed Google Cloud origin.
-- `/overview`, `/datasets`, `/analysis`, `/experiments`, `/predictions` and
-  `/assistant` map to the application's corresponding hash routes, with optional
-  trailing slashes. Browsers retain a hash when the root redirect omits one.
-- `/links` explains access and provides the direct application URL; `/robots.txt`
-  discourages indexing. Unknown paths return 404 and write methods return 405.
-- The Worker makes no upstream requests and does not proxy APIs, forward caller
-  cookies/authorization/query parameters, store sessions, or bypass Google sign-in.
-  Direct application links can still include the application's own query options.
+The checked-in Wrangler configuration targets a local D1 binding named `GUEST_DB`. The local database uses `guest-schema.sql`. Cloud deployment requires a separate configuration with the operator's database ID. Without a connected worker, submitted training and AI requests remain queued. Published answers and saved predictions remain available.
 
-The existing Workers configuration, account namespace and `prod` Worker name are
-unchanged. No paid plan, storage, secret, cron, domain purchase or new binding is
-needed. Once redirected, the browser address displays the Google Cloud hostname.
+## Scientific release packaging
 
-## Verify and deploy
+Operators with the audited inputs can generate the reviewed research export with `scripts/build_public.py` and package it with `scripts/package_shared_web.py --output data/shared_site`. The packager verifies the public manifest and uses frozen models to calculate the curated profile estimates. The static asset directory contains the published results. Model weights and raw model inputs stay in the protected environment.
 
-From the repository root:
+## Guest job processing
 
-```sh
-node --test tests/test_entry_router.mjs
-```
-
-Publish only the tested `worker.mjs` to the existing Cloudflare **prod** Worker,
-using an authorized dashboard session or separately authorized Wrangler login.
-Never upload the repository root, `context/`, `AGENTS.md`, datasets or credentials.
-Retain the prior deployed Worker version for rollback. Confirm the live root and
-all section redirects, and verify that signed-out access still requires Google
-sign-in. No Google Cloud access settings need to change.
+The worker consumer uses the release-pinned training pipeline and the agent budget ledger. The Cloudflare binding `GUEST_KEY_SHA256` holds the fingerprint of its bearer credential. The consumer loads the credential and operator settings separately. Completed jobs remain scoped to the originating guest session under the configured retention policy. [Cloud and access configuration](../../docs/CLOUD_CONFIGURATION.md)

@@ -7,6 +7,7 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT),str(ROOT/'scripts')]
 from app.server import create_app, verify_identity
+from research_agents.policies.demo_quota import DAY, END, START
 from dispatch_control import DispatchControl, BudgetExceeded, month_key
 from job_queue import Queue, job_name
 from mac_worker_loop import process_entry
@@ -38,6 +39,20 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/jobs',json=self.body).status_code,403)
         self.assertEqual(self.client.post('/api/jobs',json=self.body,headers={**self.headers,'Origin':'https://evil.test'}).status_code,403)
         self.assertEqual(self.client.post('/api/jobs',data='x'*5000,content_type='application/json',headers=self.headers).status_code,413)
+
+    def test_demo_chat_requests_get_separate_daily_web_admission(self):
+        route = '/api/copilot/status'
+        with patch.dict('os.environ', {'DEFENDER_MONTHLY_API_LIMIT':'1', 'COPILOT_BACKEND_URL':''}):
+            with patch('app.server.time.time', return_value=START-1):
+                self.assertEqual(self.client.get(route).status_code, 200)
+            with patch('app.server.time.time', return_value=START):
+                self.assertEqual(self.client.get(route).status_code, 200)
+                self.assertEqual(self.client.get(route).status_code, 429)
+                self.assertEqual(self.client.get('/api/bootstrap').status_code, 429)
+            with patch('app.server.time.time', return_value=START+DAY):
+                self.assertEqual(self.client.get(route).status_code, 200)
+            with patch('app.server.time.time', return_value=END):
+                self.assertEqual(self.client.get(route).status_code, 429)
 
     def test_duplicate_submit_once_and_conflicting_request_rejected(self):
         self.assertEqual(self.post().status_code,202)

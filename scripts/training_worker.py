@@ -39,7 +39,11 @@ class WorkerCloud(Cloud):
 
 
 def train(job, data, folder):
-    validate_job(job);validate_data(data)
+    validate_job(job)
+    if job['schema_version']==2:
+        from combined_training import train as train_combined
+        return train_combined(job,data,folder)
+    validate_data(data)
     folder.mkdir(parents=True,exist_ok=True)
     held=job['holdout_study'];train_idx=np.flatnonzero(data['study_ids']!=held);val=np.flatnonzero(data['study_ids']==held)
     if set(data['split_group_ids'][train_idx])&set(data['split_group_ids'][val]): raise ValueError('Group leakage')
@@ -152,7 +156,10 @@ def run_claimed(cloud,job_id,claimed):
     state,generation=queue.update(state,generation,'publishing')
     artifacts={}
     # Explicit allowlist: no context, logs, credentials or arbitrary workspace uploads.
-    for name in ('reference.npz','preparation.npz','model.json','replay.npz'):
+    names=('reference.npz','preparation.npz','model.json','replay.npz')
+    if job['schema_version']==2:
+        names=(*names,'validation-model.json')
+    for name in names:
         artifacts[name]=cloud.immutable(PREFIX+'artifacts/'+job_id+'/'+state['lease']['id']+'/'+name,(folder/name).read_bytes())
     committed={'schema_version':1,'request_sha256':state['request_sha256'],'artifacts':artifacts,'result':result}
     result_ref=cloud.immutable(PREFIX+'artifacts/'+job_id+'/'+state['lease']['id']+'/result.json',encode(committed))
@@ -172,7 +179,7 @@ if __name__=='__main__':
     args=p.parse_args();cloud=WorkerCloud()
     if args.command=='submit':
         release=json.loads(Path(args.release_receipt).read_text())
-        job=dict(schema_version=1,job_id=args.job_id,dataset=release['dataset'],method=args.method,
-                 holdout_study=args.holdout_study,purpose='engineering_smoke',parameters=PRESETS[args.method])
+        from training_contract import job_request
+        job=job_request(dict(job_id=args.job_id,method=args.method,holdout_study=args.holdout_study),release['dataset'])
         print(Queue(cloud).submit(job))
     else: print(json.dumps(run(cloud,args.job_id),indent=2))

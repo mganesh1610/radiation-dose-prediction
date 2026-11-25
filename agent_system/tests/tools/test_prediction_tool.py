@@ -39,6 +39,10 @@ class Engine:
     release_sha='b'*64
     models={m:{'source_sha256':'c'*64} for m in METHODS}
     def __init__(self,body):self.curated={byte_digest(encode(body)):{'id':'fixture'}};self.calls=0
+    def model_release(self,method=None):
+        if method is not None and method not in self.models:
+            raise ValueError('Unsupported frozen model')
+        return 'frozen-fixture', self.release_sha
     def validate(self,body):return None,{'usable_probes':2,'masked_probes':0,'blockers':['Unsupported normalization'] if body['metadata'].get('normalization')=='bad' else []}
     def predict(self,body,method):
         self.calls+=1

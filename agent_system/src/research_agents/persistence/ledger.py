@@ -5,9 +5,22 @@ import time
 import uuid
 
 from .control_store import Conflict, QuotaExceeded, mutate
+from ..policies.demo_quota import POLICY, START, day_for, next_midnight
 from ..policies.request_contract import compile_contract
 
 TERMINAL = frozenset({"completed", "failed", "interrupted", "cancelled"})
+
+
+class DailyTeamLimit(QuotaExceeded):
+    """The signed-in team's daily demo pool has been used."""
+
+
+def check_allowance(records, baseline, day, message):
+    if day is not None:
+        if sum(record.get("team_demo_day") == day for record in records.values()) >= POLICY["team_messages_per_day"]:
+            raise DailyTeamLimit(message)
+    elif sum("team_demo_day" not in record for record in records.values()) >= baseline:
+        raise QuotaExceeded(message)
 
 
 def new_id(prefix):
@@ -15,19 +28,37 @@ def new_id(prefix):
 
 
 class Ledger:
-    def __init__(self, store, workspace, *, clock=time.time, max_runs=20, max_chats=20):
+    def __init__(self, store, workspace, *, clock=time.time, max_runs=20, max_chats=20,
+                 record_key="ledger.json", team_demo=False):
         self.store, self.workspace, self.clock = store, workspace, clock
         self.max_runs, self.max_chats = max_runs, max_chats
+        self.record_key, self.team_demo = record_key, team_demo
 
     def read(self):
-        return self.store.read("ledger.json")[0] or {"schema_version": 1, "chats": {}, "runs": {}}
+        return self.store.read(self.record_key)[0] or {"schema_version": 1, "chats": {}, "runs": {}}
 
     def change(self, operation):
         def update(state):
             state = state or {"schema_version": 1, "chats": {}, "runs": {}}
             operation(state)
             return state
-        return mutate(self.store, "ledger.json", update)
+        return mutate(self.store, self.record_key, update)
+
+    def team_quota(self):
+        stamp = self.clock()
+        day = day_for(stamp) if self.team_demo else None
+        if self.team_demo and stamp < START:
+            return {"demo": False, "reason":"", "message":"", "reset_at":START,
+                    "upcoming":{"starts_at":POLICY["starts_at"], "ends_at":POLICY["ends_at"],
+                                "daily_messages":POLICY["team_messages_per_day"]}}
+        if day is None:
+            return None
+        limit = POLICY["team_messages_per_day"]
+        used = sum(r.get("team_demo_day") == day for r in self.read()["runs"].values())
+        exhausted = used >= limit
+        return {"demo": True, "limit": limit, "used": used, "remaining": max(0, limit-used),
+                "reason": "team_quota" if exhausted else "", "reset_at": next_midnight(stamp),
+                "message": "The team has used its daily Gemini quota. It resets at midnight Phoenix time." if exhausted else ""}
 
     def chat(self, owner, chat_id, *, include_deleted=False):
         chat = self.read()["chats"].get(chat_id)
@@ -46,12 +77,14 @@ class Ledger:
                 if existing["release_id"] != release_id or existing["deleted"]:
                     raise Conflict("Create request already used")
                 return
-            if len(state["chats"]) >= self.max_chats:
-                raise QuotaExceeded("Pilot chat allowance reached")
+            day = day_for(self.clock()) if self.team_demo else None
+            check_allowance(state["chats"], self.max_chats, day, "Pilot chat allowance reached")
             state["chats"][candidate] = {"chat_id": candidate, "owner": owner, "workspace": self.workspace,
                 "request_sha": fingerprint, "release_id": release_id, "session_id": new_id("session"),
                 "created_at": self.clock(), "expires_at": self.clock()+30*86400,
                 "deleted": False, "ready": False, "active_run": None}
+            if day is not None:
+                state["chats"][candidate]["team_demo_day"] = day
         state = self.change(op)
         return next(c for c in state["chats"].values() if c["request_sha"] == fingerprint)
 
@@ -91,8 +124,9 @@ class Ledger:
                 if active["deadline"] > self.clock(): raise Conflict("This chat already has an active turn")
                 active["status"] = "interrupted"
                 active["events"].append({"seq": len(active["events"])+1, "stage": "interrupted"})
-            if len(state["runs"]) >= self.max_runs:
-                raise QuotaExceeded("Pilot run allowance reached; review usage before increasing it")
+            day = day_for(self.clock()) if self.team_demo else None
+            check_allowance(state["runs"], self.max_runs, day,
+                            "Pilot run allowance reached; review usage before increasing it")
             live = [r for r in state["runs"].values() if r["status"] not in TERMINAL and r["deadline"] > self.clock()]
             if len(live) >= 2: raise QuotaExceeded("Two research requests are already active")
             if sum(r["chat_id"] == chat_id for r in state["runs"].values()) >= 10:
@@ -105,6 +139,8 @@ class Ledger:
                 "fence":uuid.uuid4().hex,"claimed":False,"cancel_requested":False,
                 "model_calls":0,"tool_calls":0,"input_bytes":0,"output_tokens":0,"prompt_tokens":0,
                 "reserved_model_usd":0.05,"events":[{"seq":1,"stage":"admitted"}],"receipts":[]}
+            if day is not None:
+                state["runs"][candidate]["team_demo_day"] = day
             chat["active_run"] = candidate
         state = self.change(op)
         return next(r for r in state["runs"].values() if r["key_sha"] == key_sha)

@@ -12,11 +12,13 @@ from .startup_dependency import start_dependency
 _STARTUP_DEPENDENCY = start_dependency()
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent_system' / 'src'))
+from research_agents.policies.demo_quota import day_for
 from flask import Flask, request, jsonify, g
 from cloud_io import Cloud, Conflict, PREFIX
 from job_queue import Queue
 from application_service import ApplicationService
-from training_contract import validate_job, PRESETS, CORE
+from training_contract import validate_job, PRESETS, CORE, COMBINED_DATASET, job_request
 from dispatch_control import DispatchControl, BudgetExceeded, month_key
 from analysis_service import Explorer, validate_options
 
@@ -96,11 +98,15 @@ def create_app(cloud_factory=Cloud, identity=verify_identity, prediction_engine=
             admission_started = time.perf_counter()
             g.cloud_stage = 'request_admission'
             g.cloud = cloud_factory(max_requests=45, max_upload_bytes=1_000_000)
-            g.control = DispatchControl(g.cloud)
-            g.admission = admission.reserve(g.control, g.owner, reviewer_limit if g.reviewer else None)
+            demo_day = day_for(time.time()) if request.path.startswith('/api/copilot/') else None
+            # Chat polling and history share their own daily HTTP allowance during
+            # the demo. The Coordinator counts actual Gemini turns separately.
+            g.control = DispatchControl(g.cloud, 'copilot-demo-' + demo_day if demo_day else None)
+            owner_limit = reviewer_limit if g.reviewer and not demo_day else None
+            g.admission = admission.reserve(g.control, g.owner, owner_limit)
             g.timing['web_admission'] = time.perf_counter() - admission_started
             g.cloud_stage = 'application'
-            g.service = ApplicationService(g.cloud, Queue(g.cloud), {'dataset': DATASET})
+            g.service = ApplicationService(g.cloud, Queue(g.cloud), {'dataset': COMBINED_DATASET, 'previous': [DATASET]})
 
     @app.after_request
     def headers(response):
@@ -147,12 +153,12 @@ def create_app(cloud_factory=Cloud, identity=verify_identity, prediction_engine=
             raise PermissionError('Chat training bridge is not enabled')
         from training_bridge import TrainingBridge
         policy=json.loads(Path(os.environ['TRAINING_BRIDGE_POLICY']).read_text())
-        return TrainingBridge(g.cloud,g.owner,DATASET,policy,reviewer=g.reviewer)
+        return TrainingBridge(g.cloud,g.owner,COMBINED_DATASET,policy,reviewer=g.reviewer,previous=[DATASET])
 
     @app.get('/api/training/catalog')
     def training_catalog():
         training_bridge()
-        return jsonify(methods=PRESETS,studies=CORE,month=g.control.month,
+        return jsonify(methods=PRESETS,studies=CORE,training_pool=dict(total=567,whole_blood=145,wbc=422),month=g.control.month,
                        jobs=[k for k,v in g.admission['jobs'].items() if v['owner']==g.owner],
                        training_enabled=os.environ.get('TRAINING_ENABLED','true').lower()=='true',
                        role='reviewer' if g.reviewer else 'researcher')
@@ -191,7 +197,8 @@ def create_app(cloud_factory=Cloud, identity=verify_identity, prediction_engine=
         except FileNotFoundError:
             worker = {'status': 'not_started', 'checked_at': None}
         # A timestamp is evidence of a past check-in, never a guarantee of current availability.
-        return jsonify(**g.service.methods(), studies=CORE, release_id='core_'+DATASET['sha256'][:16],
+        return jsonify(**g.service.methods(), studies=CORE, release_id=COMBINED_DATASET['object'].split('/')[3],
+                       training_pool=dict(total=567,whole_blood=145,wbc=422),
                        worker=worker, month=g.control.month,
                        jobs=[k for k,v in g.admission['jobs'].items() if v['owner']==g.owner],
                        limits={'api_requests':g.control.http_limit, 'jobs':12}, requests_used=g.admission['requests'],
@@ -214,12 +221,13 @@ def create_app(cloud_factory=Cloud, identity=verify_identity, prediction_engine=
             raise ValueError('Job ID must use the current admission month')
         if not isinstance(body['method'],str) or body['method'] not in PRESETS: raise ValueError('Unsupported method')
         if not isinstance(body['holdout_study'],str): raise ValueError('Invalid held-out study')
-        job = dict(body, schema_version=1, dataset=DATASET, purpose='engineering_smoke',
-                   parameters=PRESETS[body['method']])
+        existing=g.admission['jobs'].get(body['job_id'])
+        dataset=existing['request']['dataset'] if existing and existing['owner']==g.owner else COMBINED_DATASET
+        job=job_request(body,dataset)
         validate_job(job)
         # Durable admission precedes job creation. Worker can repair a crash between these writes.
         g.control.admit(job, g.owner, 2 if g.reviewer else None)
-        return jsonify(g.service.create_job(body)), 202
+        return jsonify(g.service.create_job(body,admitted_dataset=dataset)), 202
 
     @app.get('/api/jobs/<job_id>')
     def status(job_id):
@@ -255,7 +263,7 @@ def create_app(cloud_factory=Cloud, identity=verify_identity, prediction_engine=
     @app.get('/api/prediction-catalog')
     def prediction_catalog():
         service = predictions()
-        return jsonify(**service.engine.catalog(), role='reviewer' if g.reviewer else 'researcher', uploads=service.list())
+        return jsonify(**service.engine.catalog(prediction_picker=True), role='reviewer' if g.reviewer else 'researcher', uploads=service.list())
 
     @app.get('/api/prediction-chat-catalog')
     def prediction_chat_catalog():
@@ -265,19 +273,22 @@ def create_app(cloud_factory=Cloud, identity=verify_identity, prediction_engine=
     @app.get('/api/prediction-examples/<sample>')
     def prediction_example(sample):
         engine = predictions().engine
-        row = next((r for r in engine.manifest['examples'] if r['id'] == sample), None)
-        if not row: raise FileNotFoundError()
-        return app.response_class((engine.folder / row['file']).read_bytes(), mimetype='application/json',
-                                  headers={'Content-Disposition': 'attachment; filename="' + row['file'] + '"'})
+        return app.response_class(engine.example_bytes(sample), mimetype='application/json',
+                                  headers={'Content-Disposition': 'attachment; filename="' + sample + '.json"'})
 
     @app.post('/api/uploads')
-    def upload(): return jsonify(predictions().upload(request.get_json())), 201
+    def upload(): return jsonify(predictions().upload(request.get_json(),model=request.args.get('model'))), 201
 
     @app.get('/api/uploads/<uid>')
-    def upload_record(uid): return jsonify(predictions().get(uid, review=not g.reviewer))
+    def upload_record(uid): return jsonify(predictions().get(uid, review=not g.reviewer,model=request.args.get('model')))
+
+    @app.post('/api/uploads/<uid>/check')
+    def check_stored_upload(uid):
+        if request.get_json() != {}: raise ValueError('Expected an empty compatibility-check request')
+        return jsonify(predictions().check_stored(uid,model=request.args.get('model'),review=not g.reviewer))
 
     @app.post('/api/uploads/<uid>/review')
-    def review_upload(uid): return jsonify(predictions().review(uid, request.get_json()))
+    def review_upload(uid): return jsonify(predictions().review(uid, request.get_json(),model=request.args.get('model')))
 
     @app.post('/api/predict')
     def predict():
@@ -297,6 +308,8 @@ def create_app(cloud_factory=Cloud, identity=verify_identity, prediction_engine=
             x, qc = engine.validate(body)
             if qc['blockers']: raise RuntimeError('Curated replay incompatible')
             panels, _ = engine.panels(x)
+            if engine.wbc_bundle:
+                expected = {**expected, engine.wbc_bundle['model']:engine.wbc_bundle['replay_gy'][sample]}
             for model, value in expected.items():
                 errors[sample + '/' + model] = abs(float(engine.predict_values(model, panels)[0]) - value)
         passed = max(errors.values()) <= replay['tolerance_gy']

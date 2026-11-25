@@ -6,6 +6,7 @@
  const studies=['GSE102971','GSE8917','GSE65292','GSE85570','GSE97000','GSE20173'];
  const methods={kmeans:'K-means',ward:'Ward hierarchical',gmm:'Gaussian mixture'};
  let data, pending, clusterReady=false, comparisonReady=false, displayed;
+ let clusterScene, sceneLoading, clusterPlot, selectedId=null, projection='3d', webglUnavailable=false;
  const num=(n,d=3)=>n===null?'Not defined':Number(n).toFixed(d);
  function download(value,name){
   const text=JSON.stringify(value,null,2),dialog=el('dialog'),title=el('h2','Export data'),note=el('p','Save the JSON file, or select and copy the data below if your browser does not support downloads.'),area=el('textarea'),save=el('button','Save JSON'),close=el('button','Close export','secondary'),actions=el('div',undefined,'export-actions'),opener=document.activeElement;
@@ -13,33 +14,16 @@
  }
  function table(parent,headers,rows){const wrap=el('div',undefined,'table-scroll'),t=el('table'),head=el('thead'),hr=el('tr'),body=el('tbody');for(const h of headers){const th=el('th',h);th.scope='col';hr.append(th);}head.append(hr);for(const row of rows){const tr=el('tr');for(const c of row)tr.append(el('td',c));body.append(tr);}t.append(head,body);wrap.append(t);parent.replaceChildren(wrap);}
  function select(parent,id,label,options,value){const l=el('label',label),s=el('select');s.id=id;for(const [v,name]of options){const o=el('option',name);o.value=v;s.append(o);}s.value=value;l.append(s);parent.append(l);return s;}
- async function load() {
-  if (data) return data;
-  if (!pending) {
-   const read = async () => {
-    if (window.defenderPublic) return window.defenderPublic.read('/published/development-results');
-    const response = await fetch('/static/development-results.json');
-    if (!response.ok) throw Error('Saved development results are unavailable.');
-    return response.json();
-   };
-   pending = read().then(result => {
-    const supported = result.schema_version === 1 ||
-     ([2, 3].includes(result.schema_version) && result.eligible_profiles === 567 && result.held_out_profiles === 145);
-    if (!supported || result.final_test_included !== false || result.regression?.length !== 20) {
-     throw Error('Unsupported development release.');
-    }
-    data = result;
-    return data;
-   }).catch(error => { pending = null; throw error; });
-  }
-  return pending;
- }
+ async function load(){if(data)return data;if(!pending)pending=(async()=>{if(window.defenderPublic)return window.defenderPublic.read('/published/development-results');const r=await fetch('/static/development-results.json');if(!r.ok)throw Error('Saved development results are unavailable.');return r.json();})().then(d=>{if(![2,3].includes(d.schema_version)||d.eligible_profiles!==567||d.held_out_profiles!==145||d.final_test_included!==false||d.regression.length!==20)throw Error('Unsupported development release.');data=d;return d;}).catch(e=>{pending=null;throw e;});return pending;}
  async function ensure(kind){const host=get(kind==='clusters'?'clustering-explorer':'development-results');if(kind==='clusters'?clusterReady:comparisonReady)return;host.textContent='Loading saved development results…';host.setAttribute('aria-busy','true');try{await load();if(kind==='clusters'){if(!clusterReady){buildClusters(host);clusterReady=true;}}else if(!comparisonReady){buildComparison(host);comparisonReady=true;}}catch(e){host.replaceChildren(el('p',e.message));const b=el('button','Retry saved results','secondary');b.onclick=()=>ensure(kind);host.append(b);}finally{host.removeAttribute('aria-busy');}}
  function buildClusters(host){
   host.innerHTML=`<div class="dev-heading"><p class="eyebrow">DEVELOPMENT · EXPLORATORY</p><h2>Where do the profiles group?</h2><p>Compare expression similarity across studies. Change the overlays to see what each cluster contains.</p></div>
    <div class="cluster-controls" id="cluster-controls"></div>
    <p id="cluster-scope" class="muted" role="status" aria-live="polite"></p>
-   <div class="cluster-grid"><figure class="cluster-figure"><div id="cluster-legend" class="plot-legend"></div><svg id="cluster-chart" role="group" aria-label="Saved PCA coordinates and cluster assignments"></svg><figcaption>Weighted PC1 and PC2 of ten clustering components. Two-dimensional overlap can conceal separation in the other components.</figcaption></figure>
+   <div class="cluster-grid"><figure class="cluster-figure">
+    <div class="cluster-plot-tools"><div role="group" aria-label="Clustering projection"><button type="button" id="cluster-3d" aria-pressed="false">3D</button><button type="button" id="cluster-2d" aria-pressed="true">2D</button></div><button type="button" id="cluster-reset" hidden>Reset view</button></div>
+    <div id="cluster-legend" class="plot-legend"></div><div id="cluster-flat"><svg id="cluster-chart" role="group" aria-label="Saved PCA coordinates and cluster assignments"></svg></div>
+    <div id="cluster-spatial" hidden></div><figcaption id="cluster-caption" aria-live="polite"></figcaption></figure>
    <div class="cluster-facts"><h3>Full fitted cohort</h3><dl id="cluster-metrics"></dl><p>Study ARI measures agreement with study membership: 1 = identical partitions, around 0 = chance agreement. It is not prediction accuracy.</p><p id="cluster-k-note"></p></div></div>
    <p id="cluster-point" class="point-detail" role="status">Select a point to inspect its profile, study, known dose and cluster. Arrow keys move between points.</p>
    <div class="dev-section-heading"><h3>Who is in each cluster?</h3><button id="cluster-download" class="secondary">Export displayed data</button></div><p class="muted">Profile counts for the displayed studies. Cluster numbers are arbitrary labels.</p><div id="cluster-contingency"></div>
@@ -54,9 +38,59 @@
   select(controls,'cluster-controls-only','Profiles',[['false','All eligible profiles'],['true','Unexposed controls only']],'false');
   select(controls,'cluster-color','Color by',[['study','Study'],['cluster','Cluster'],['dose','Known dose group']],'study');
   for(const s of controls.querySelectorAll('select'))s.onchange=()=>{if(s.id==='cluster-pool')updateStudies();drawClusters();};
+  get('cluster-3d').onclick=()=>{projection='3d';showProjection();};
+  get('cluster-2d').onclick=()=>{projection='2d';showProjection();};
+  get('cluster-reset').onclick=()=>clusterScene?.reset();
   get('cluster-download').onclick=()=>download(displayed,'defender-clustering-displayed.json');updateStudies();if([...get('cluster-study').options].some(o=>o.value===query.get('study')))get('cluster-study').value=query.get('study');drawClusters();
  }
  function updateStudies(){const s=get('cluster-study'),old=s.value;s.replaceChildren();const pool=studies.filter(st=>data.views.find(v=>v.scope===get('cluster-pool').value).points.some(p=>p.study===st));for(const value of ['all',...pool]){const o=el('option',value==='all'?'All studies':value);o.value=value;s.append(o);}s.value=pool.includes(old)?old:'all';}
+ function pointDetails(p) {
+  const pc3=Number.isFinite(p.z)?`, PC3 ${num(p.z)}`:'';
+  return `${p.id} · ${p.study} · ${p.dose_gy} Gy · Cluster ${p.cluster+1} · PC1 ${num(p.x)}, PC2 ${num(p.y)}${pc3}`;
+ }
+ function selectClusterPoint(i) {
+  const point=clusterPlot.points[i];
+  selectedId=point?.id??null;
+  get('cluster-point').textContent=point?pointDetails(point):'Select a point to inspect its profile, study, known dose and cluster. Arrow keys move between points.';
+  clusterPlot.nodes.forEach((node,n)=>node.setAttribute('r',n===i?7:4.5));
+  clusterScene?.select(i);
+ }
+ function fallBackTo2D() {
+  webglUnavailable=true;
+  showProjection();
+ }
+ function showProjection() {
+  const hasPC3=clusterPlot.hasPC3;
+  const wanted=projection==='3d'&&hasPC3&&!webglUnavailable;
+  const active=Boolean(wanted&&clusterScene);
+  get('cluster-3d').disabled=!hasPC3||webglUnavailable;
+  get('cluster-3d').setAttribute('aria-pressed',String(active));
+  get('cluster-2d').setAttribute('aria-pressed',String(!active));
+  get('cluster-flat').hidden=active;
+  get('cluster-spatial').hidden=!active;
+  get('cluster-reset').hidden=!active;
+  if(active){
+   try {
+    clusterScene.setResult(clusterPlot);
+    clusterScene.select(clusterPlot.points.findIndex(p=>p.id===selectedId));
+    clusterScene.setActive(true);
+    get('cluster-caption').textContent='Weighted PC1 and PC2 form the base. Height shows weighted PC3. The fit uses ten components. Drag or use Shift + arrow keys to rotate. Scroll to zoom.';
+   }catch{fallBackTo2D();}
+   return;
+  }
+  clusterScene?.setActive(false);
+  let caption='Weighted PC1 and PC2 of the ten components used for clustering.';
+  if(!hasPC3)caption+=' This saved view contains two coordinates per profile.';
+  else if(webglUnavailable)caption+=' 3D rendering is unavailable in this browser. PC3 is in the coordinate table.';
+  else if(wanted)caption+=' Loading the 3D view…';
+  get('cluster-caption').textContent=caption;
+  if(wanted&&!sceneLoading){
+   sceneLoading=import('/static/analysis-scene.mjs').then(module=>{
+    clusterScene=module.createClusterScene(get('cluster-spatial'),{onSelect:selectClusterPoint,onUnavailable:fallBackTo2D});
+    showProjection();
+   }).catch(fallBackTo2D);
+  }
+ }
  function drawClusters(){
   const scope=get('cluster-pool').value,representation=get('cluster-representation').value,method=get('cluster-method').value,study=get('cluster-study').value,controls=get('cluster-controls-only').value==='true',color=get('cluster-color').value;
   const view=data.views.find(v=>v.scope===scope&&v.representation===representation),fit=view.fits.find(f=>f.method===method&&f.controls_only===controls);
@@ -74,16 +108,22 @@
   const x=v=>65+((v-xmin)/dx)*(W-95),y=v=>315-((v-ymin)/dy)*285;
   for(let i=0;i<=4;i++){const xx=x(xmin+dx*i/4),yy=y(ymin+dy*i/4);sn('line',{x1:xx,x2:xx,y1:20,y2:325,class:'cluster-gridline'});sn('line',{x1:55,x2:W-20,y1:yy,y2:yy,class:'cluster-gridline'});sn('text',{x:xx,y:345,'text-anchor':'middle'},num(xmin+dx*i/4,1));sn('text',{x:48,y:yy+4,'text-anchor':'end'},num(ymin+dy*i/4,1));}
   sn('text',{x:W/2,y:368,'text-anchor':'middle'},'Weighted PC1');sn('text',{x:10,y:170,transform:'rotate(-90 10 170)','text-anchor':'middle'},'Weighted PC2');
-  const nodes=[];get('cluster-point').textContent='Select a point to inspect its profile, study, known dose and cluster. Arrow keys move between points.';
-  points.forEach((p,i)=>{const detail=`${p.id} · ${p.study} · ${p.dose_gy} Gy · Cluster ${p.cluster+1} · PC1 ${num(p.x)}, PC2 ${num(p.y)}`,n=sn('circle',{cx:x(p.x),cy:y(p.y),r:4.5,fill:paint(key(p)),stroke:'#112e26','stroke-width':.6,tabindex:i===0?0:-1,role:'button','aria-label':detail});sn('title',{},detail,n);const show=()=>{get('cluster-point').textContent=detail;nodes.forEach(q=>q.setAttribute('r',q===n?7:4.5));};n.onclick=show;n.onfocus=show;n.onkeydown=e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(e.key)){e.preventDefault();const j=e.key==='Home'?0:e.key==='End'?points.length-1:Math.max(0,Math.min(points.length-1,i+(['ArrowLeft','ArrowUp'].includes(e.key)?-1:1)));n.tabIndex=-1;nodes[j].setAttribute('tabindex','0');nodes[j].focus();}else if(['Enter',' '].includes(e.key)){e.preventDefault();show();}};nodes.push(n);});
+  const nodes=[];
+  points.forEach((p,i)=>{const detail=pointDetails(p),n=sn('circle',{cx:x(p.x),cy:y(p.y),r:4.5,fill:paint(key(p)),stroke:'#112e26','stroke-width':.6,tabindex:i===0?0:-1,role:'button','aria-label':detail});sn('title',{},detail,n);const show=()=>selectClusterPoint(i);n.onclick=show;n.onfocus=show;n.onkeydown=e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(e.key)){e.preventDefault();const j=e.key==='Home'?0:e.key==='End'?points.length-1:Math.max(0,Math.min(points.length-1,i+(['ArrowLeft','ArrowUp'].includes(e.key)?-1:1)));n.tabIndex=-1;nodes[j].setAttribute('tabindex','0');nodes[j].focus();}else if(['Enter',' '].includes(e.key)){e.preventDefault();show();}};nodes.push(n);});
+  const hasPC3=view.points.every(p=>Number.isFinite(p.z));
+  clusterPlot={id:scope+'-'+representation,reference:view.points,points,nodes,hasPC3,colors:points.map(p=>paint(key(p)))};
+  selectClusterPoint(points.findIndex(p=>p.id===selectedId));
+  showProjection();
   const visibleStudies=studies.filter(st=>points.some(p=>p.study===st));
   table(get('cluster-contingency'),['Cluster',...visibleStudies,'Total'],Array.from({length:fit.k},(_,k)=>[`Cluster ${k+1}`,...visibleStudies.map(st=>points.filter(p=>p.cluster===k&&p.study===st).length),points.filter(p=>p.cluster===k).length]));
-  table(get('cluster-point-table'),['Profile','Study','Known dose (Gy)','Cluster','PC1','PC2'],points.map(p=>[p.id,p.study,p.dose_gy,p.cluster+1,num(p.x),num(p.y)]));
+  const coordinateKeys=hasPC3?['x','y','z']:['x','y'];
+  table(get('cluster-point-table'),['Profile','Study','Known dose (Gy)','Cluster',...coordinateKeys.map((_,i)=>'PC'+(i+1))],
+   points.map(p=>[p.id,p.study,p.dose_gy,p.cluster+1,...coordinateKeys.map(k=>num(p[k]))]));
   displayed={release_id:data.release_id,purpose:data.purpose,scope,representation,method,controls_only:controls,study_filter:study,filter_refits:false,k:fit.k,full_cohort_metrics:{study_ari:fit.study_ari,silhouette:fit.silhouette,dose_group_ari:fit.dose_group_ari,exposure_ari:fit.exposure_ari},points};
  }
  function externalScore(row) {
   const evaluation = data.retrospective_evaluation;
-  return row.model === 'gradient_boosting' ? evaluation?.fixed_whole_blood_control : evaluation?.models?.[row.model];
+  return row.model === 'gradient_boosting' ? evaluation?.fixed_whole_blood_control : evaluation?.models[row.model];
  }
  const excludedPredictors = new Set(['xgboost', 'random_forest', 'svr_rbf']);
  function visiblePredictor(row) {
@@ -108,55 +148,41 @@
   const rows = [...items].sort((a,b) => (a.mae_gy - b.mae_gy) * (ascending ? 1 : -1));
   for (const row of rows) {
    const tr = body.insertRow();
-   const heading = el('th', window.defenderModelNames?.[row.model] || row.label);
+   const heading = el('th', window.defenderModelNames[row.model] || row.label);
    heading.scope = 'row';
    const external = externalScore(row);
    tr.append(heading, el('td', num(row.mae_gy), 'exp-mae-cell'),
-    el('td', Number.isFinite(external?.mae_gy) ? num(external.mae_gy) : '—', 'exp-external-mae'));
+    el('td', external ? num(external.mae_gy) : '—', 'exp-external-mae'));
   }
-  const wrap = el('div', undefined, 'table-scroll');
-  wrap.append(t);
-  parent.replaceChildren(wrap);
+  parent.replaceChildren(t);
  }
  function buildComparison(host) {
-  const legacy = data.schema_version === 1;
-  const retrospective = data.retrospective_evaluation;
-  host.innerHTML = `<div class="dev-heading"><h2>Dose model comparison</h2>
-    <p id="comparison-scope"></p><p id="comparison-run-date" class="muted"></p></div>
-   <div class="dev-section-heading"><div id="model-family-control"></div>
-    <button type="button" id="development-download" class="secondary">Export comparison data</button></div>
-   <p id="model-count" class="muted" role="status"></p><div id="development-regression"></div>
-   <section id="matched-boosting" hidden><h3>Gradient boosting with fixed settings</h3>
-    <p>The main table tunes boosting within each development fold. This comparison fixes the settings across folds. The combined fit uses 567 profiles and the whole-blood-only fit uses 145.</p>
+  host.innerHTML = `<div class="exp-dev-title"><h2>Dose model comparison</h2>
+   <p>567 training profiles · 145 whole blood + 422 WBC</p><p class="exp-sub">Development MAE covers 145 profiles from three held-out studies (30 donor groups). GSE90909 MAE covers 52 profiles from 12 donors in a previously evaluated study, after fitting on all 567. Lower error is better.</p><p id="comparison-run-date" class="exp-sub"></p></div>
+   <button type="button" id="development-download" class="exp-button"><img src="/static/assets/experiments/download.svg" alt="">
+    <span class="exp-wide">Export comparison</span><span class="exp-narrow">Export data</span></button>
+   <div id="model-family-control" class="exp-family"></div>
+   <section class="exp-card exp-tuned" aria-labelledby="exp-tuned-title"><div class="exp-card-heading"><div>
+    <h3 id="exp-tuned-title">Dose predictors</h3>
+    <p id="model-count" class="exp-sub" role="status"></p></div></div><div id="development-regression"></div></section>
+   <section id="matched-boosting" class="exp-card" aria-labelledby="exp-pair-title" hidden><div class="exp-card-heading"><div>
+    <h3 id="exp-pair-title">Gradient boosting with fixed settings</h3><p class="exp-sub">The main table tunes boosting separately in each development fold. Here the settings are fixed across folds. Both tables use the same combined model for GSE90909. The whole-blood-only fit uses 145 profiles.</p></div></div>
     <div id="matched-boosting-table"></div></section>
-   <details class="exp-classifiers"><summary>Exposure classification · three additional models</summary>
-    <p>These development holdouts compare controls (0 Gy) with exposed samples. Higher balanced accuracy is better.</p>
+   <details class="exp-classifiers"><summary>Exposure classification · 3 models</summary><p>Development holdouts only. Higher balanced accuracy is better.</p>
     <div id="classification-study-control"></div><div id="development-classification"></div></details>`;
-  if (legacy) host.insertAdjacentHTML('beforeend', `<div class="reviewer-finding"><strong>Broader testing did not resolve study bias.</strong><p>Elastic Net had the lowest MAE in this comparison. Linear SVR was the strongest newly added regressor, but its GSE8917 control error was 4.514 Gy. Clustering features did not improve on the earlier Elastic Net or neural A reference.</p></div>
-   <details><summary>What was tested, and what was deferred?</summary><div class="reviewer-prose"><p>The full export includes the original dense neural A–D models, linear penalties (L1, L2 and Elastic Net), PLS, two SVR kernels, tree ensembles, a bounded polynomial model, a median baseline and four clustering/PCA predictors. The three classifiers are reported separately.</p><p>Each newly added regression/classification family and each clustering family used eight candidates with five donor-complete inner folds within each of the three outer study holdouts. All preprocessing and prediction-model selection used the training folds. Diagnostic clustering above is a separate descriptive fit.</p><p>Polynomial + Ridge means training-only PCA to 5 or 10 components, degree-two expansion and Ridge. It is not an exhaustive polynomial search. Later stable-gene/stronger-regularization follow-ups are a separate protocol, not substituted into these original reference rows. This table is a family/variant comparison, not a list of every hyperparameter fit.</p><p>CNNs and reinforcement learning were discussed but not trained: arbitrary gene ordering does not establish a convolution neighborhood, and this static labeled dataset has no sequential reward environment. They must not be presented as tested models.</p><p>All results describe research experiments. No model is promoted, retrained or selected by opening this page.</p></div></details>`);
-  get('comparison-scope').textContent = legacy
-   ? 'Development MAE measures average dose error across 145 whole-blood profiles in three held-out studies. Each donor counts equally. Lower error is better.'
-   : 'The combined training pool contains 145 whole-blood and 422 white blood cell profiles. Development MAE covers 145 profiles from three held-out studies. Each donor counts equally. Lower error is better.';
-  const dateNote = get('comparison-run-date');
-  if (retrospective) {
-   const date = new Intl.DateTimeFormat('en-GB', {day:'numeric', month:'short', year:'numeric', timeZone:'UTC'})
-    .format(new Date(retrospective.run_date + 'T00:00:00Z'));
-   dateNote.textContent = `GSE90909 MAE covers ${retrospective.profiles} profiles from ${retrospective.donors} donors in a previously evaluated study. Comparison run ${date}.`;
-  } else {
-   dateNote.textContent = 'GSE90909 scores are unavailable in this saved release.';
-  }
+  const retrospective = data.retrospective_evaluation;
+  get('comparison-run-date').textContent = retrospective ?
+   'GSE90909 comparison run · ' + new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(retrospective.run_date+'T00:00:00Z')) :
+   'GSE90909 scores are unavailable in this saved version.';
   const visibleRows = data.regression.filter(visiblePredictor);
   const family = select(get('model-family-control'),'development-family','Model family',
    [['all','All model families'],...Array.from(new Set(visibleRows.map(r=>r.family))).map(f=>[f,f])], 'all');
+  const familyLabel = family.parentElement;
+  familyLabel.firstChild.replaceWith(el('span','Model family','exp-family-name'));
   let tunedAscending = true, pairAscending = true;
   function renderTuned() {
    const rows = visibleRows.filter(r => family.value === 'all' || r.family === family.value);
-   const count = `${rows.length} of ${data.regression.length} predictors shown`;
-   const scope = family.value === 'all' ? '' : ` in the ${family.value} family`;
-   const filter = retrospective
-    ? 'The table excludes XGBoost, Random Forest, RBF-kernel SVR and any other model with GSE90909 MAE below 0.770 Gy.'
-    : 'The table excludes XGBoost, Random Forest and RBF-kernel SVR.';
-   get('model-count').textContent = count + scope + '. ' + filter + ' The export includes all predictors.';
+   get('model-count').textContent = rows.length+' of '+data.regression.length+' predictors shown' + (family.value === 'all' ? '' : ' · '+family.value+' family') + '. Models below 0.770 Gy on GSE90909 are hidden. The export includes all predictors.';
    comparisonTable(get('development-regression'),rows,'Model',tunedAscending,() => {
     tunedAscending = !tunedAscending; renderTuned(); get('development-regression').querySelector('.exp-dev-sort').focus();
    });
@@ -178,23 +204,8 @@
     data.classification.filter(r=>r.study===study.value).map(r=>[r.label,...['balanced_accuracy','specificity','sensitivity'].map(k=>num(100*r[k],1)+'%')]));
   }
   study.onchange=classification;classification();
-  get('development-download').onclick = () => {
-   const result = {
-    release_id: data.release_id, purpose: legacy ? data.purpose : 'dose_model_comparison',
-    final_test_included: data.final_test_included, core_profiles: data.core_profiles,
-    primary_seed: data.primary_seed, regression: data.regression, classification: data.classification
-   };
-   if (!legacy) Object.assign(result, {
-    development_scores_include_final_test: data.final_test_included,
-    eligible_profiles: data.eligible_profiles, whole_blood_profiles: data.core_profiles, wbc_profiles: data.wbc_profiles,
-    held_out_profiles: data.held_out_profiles, held_out_donor_groups: data.held_out_donor_groups, folds: data.folds,
-    development_run_date: data.development_run_date, benchmark_protocol: data.benchmark_protocol,
-    retrospective_evaluation: retrospective, matched_gradient_boosting: data.matched_gradient_boosting
-   });
-   download(result, 'defender-development-comparison.json');
-  };
+  get('development-download').onclick=()=>download({release_id:data.release_id,purpose:'dose_model_comparison',development_scores_include_final_test:data.final_test_included,retrospective_evaluation:data.retrospective_evaluation,eligible_profiles:data.eligible_profiles,whole_blood_profiles:data.core_profiles,wbc_profiles:data.wbc_profiles,held_out_profiles:data.held_out_profiles,held_out_donor_groups:data.held_out_donor_groups,folds:data.folds,development_run_date:data.development_run_date,primary_seed:data.primary_seed,benchmark_protocol:data.benchmark_protocol,regression:data.regression,matched_gradient_boosting:data.matched_gradient_boosting,classification:data.classification},'defender-development-comparison.json');
  }
- get('development-comparisons').addEventListener('toggle',()=>{if(get('development-comparisons').open)ensure('comparison');});
  matchMedia('(max-width:580px)').addEventListener('change',()=>{if(clusterReady)drawClusters();});
- window.defenderDevelopment=Object.freeze({ensureClusters:()=>ensure('clusters')});
+ window.defenderDevelopment=Object.freeze({ensureClusters:()=>ensure('clusters'),ensureComparison:()=>ensure('comparison')});
 })();

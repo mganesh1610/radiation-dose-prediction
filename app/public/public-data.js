@@ -15,7 +15,9 @@
  async function snapshot(){
   publication=await json('/data/publication.json');
   if(publication.schema_version!==1||!/^\/[a-z]+\/[a-f0-9]{20}$/.test(publication.data_path))throw Error('Unsupported published snapshot.');
-  document.getElementById('snapshot-note').textContent=`Public research explorer · Snapshot ${publication.published_date} · ${publication.profiles} core profiles`;
+  const cohort = publication.eligible_development_profiles ?
+   publication.eligible_development_profiles + ' eligible development profiles' : publication.profiles + ' core analysis profiles';
+  document.getElementById('snapshot-note').textContent = 'Public research explorer · ' + cohort;
   return publication;
  }
  async function read(path,options){

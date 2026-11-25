@@ -4,6 +4,7 @@ This is a bounded pattern/path check, not proof that arbitrary secrets cannot
 exist. Inspect the file list and diff as well. Never prints matched secret values.
 """
 import argparse
+import hashlib
 from pathlib import PurePosixPath
 import re
 import subprocess
@@ -15,7 +16,15 @@ ROOT_DIRS = {'app', 'scripts', 'schemas', 'tests', 'docs', 'agent_system'}
 SUFFIXES = {'.py', '.R', '.md', '.txt', '.json', '.jsonc', '.js', '.mjs', '.cjs',
             '.html', '.css', '.svg', '.LICENSE', '.toml', '.lock'}
 BINARY = {'app/static/assets/cell-hero.png', 'app/static/fonts/geist.woff2', 'app/static/fonts/ibm-plex-mono.woff2'}
-LICENSES = {'app/static/vendor/three/LICENSE'}
+REVIEWED_MEDIA = {
+    'app/static/assets/overview-dna-wide.mp4': '3fb5ff80b72eb084f5173a46828316f31b55b88009814e741520cf1b3c8976fc',
+    'app/static/assets/overview-dna-wide.webp': 'b2d94262514d9366350adb61b1e56c713a57b16821c062f01dc126ca5e9866b0',
+    'app/static/assets/overview-dna.mp4': '3386c1ad9a0456b83dff3e2a8e6d2b0621196dfcd60245802edd51966d8cea0d',
+    'app/static/assets/overview-dna.webp': '816bb13a86cc24bf7fea2c1e93dfbeb43d221b7589f821f5f16d2695bb403208',
+    'app/static/fonts/geist-mono.woff2': '3ef2c50dc1042ebfa89ca66bb6901e9dde5737970547c21b4de7a44dfb2ab948',
+}
+EXACT_SOURCES = {'app/static/icons/phosphor/LICENSE', 'app/static/vendor/three/LICENSE', 'app/static/vendor/ui-sdk/0.1.0-beta.2/LICENSE',
+                 'app/entry-router/guest-schema.sql'}
 RULES = {
     'private-key': rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----',
     'google-api-key': rb'AIza[0-9A-Za-z_-]{35}',
@@ -48,7 +57,7 @@ def audit(tree=None):
         if mode not in ('100644', '100755'):
             problems.append((path, 'non-regular-file'))
         if (path not in ROOT_FILES and (p.parts[0] not in ROOT_DIRS or
-            (p.suffix not in SUFFIXES and path not in BINARY and path not in LICENSES and p.name != 'Dockerfile'))):
+            (p.suffix not in SUFFIXES and path not in BINARY and path not in REVIEWED_MEDIA and path not in EXACT_SOURCES and p.name != 'Dockerfile'))):
             problems.append((path, 'outside-submission-allowlist'))
         if any(x in ('context', 'data', 'output', 'config', 'runtime', '.git', '.venv',
                      'node_modules', '__pycache__', '.vercel', '.wrangler')
@@ -57,6 +66,8 @@ def audit(tree=None):
         if p.name.startswith('.env') and path != '.env.example':
             problems.append((path, 'environment-file'))
         payload = git('cat-file', 'blob', sha)
+        if path in REVIEWED_MEDIA and hashlib.sha256(payload).hexdigest() != REVIEWED_MEDIA[path]:
+            problems.append((path, 'unreviewed-media'))
         if len(payload) > 5_000_000:
             problems.append((path, 'unexpected-file-size'))
         for label, pattern in RULES.items():

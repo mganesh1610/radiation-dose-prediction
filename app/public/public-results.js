@@ -20,7 +20,7 @@ function scatter(rows){
 function show(run){
  selected=run;const r=run.result;
  $('results').hidden=false;$('result-title').textContent=run.label+' · development results';
- $('result-context').textContent=`Held out ${r.holdout_study} · ${r.train_samples} training profiles · ${r.validation_samples} validation profiles. Engineering run; not a tuned comparison or a published predictor.`;
+ $('result-context').textContent=`${r.holdout_study} · ${r.train_samples} profiles to fit · ${r.validation_samples} held out for scoring.${r.refit_samples ? " Saved model refitted on all "+r.refit_samples+" profiles." : ""}`;
  $('metrics').replaceChildren();
  for(const [key,label]of [['mae','Donor-balanced MAE'],['rmse','Donor-balanced RMSE'],['bias','Donor-balanced bias']]){const block=el('div');block.append(el('span',label),el('strong',r.metrics[key].toFixed(3)+' Gy'));$('metrics').append(block);}
  scatter(r.predictions);$('predictions').replaceChildren();

@@ -6,7 +6,8 @@
  const make=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node;};
  const styles={GSE102971:{color:'#77d8a9',shape:'circle'},GSE8917:{color:'#edb45e',shape:'diamond'},GSE65292:{color:'#9cacf8',shape:'square'}};
  const state={result:null,view:'pca',perspective:'spatial',selection:-1,highlight:null,epoch:0,unavailable:false,expanded:false};
- let scene=null,scenePromise=null,baseCaption='',priorFocus=null;
+ let scene=null,scenePromise=null,baseCaption='',priorFocus=null,guide=null;
+ const outlierToggle=get('workspace-outlier-toggle');
  const ratio=value=>(value*100).toFixed(1)+'%',numeric=value=>Number.isFinite(value)?value.toFixed(3):'Not recorded';
  const iconPaths={file:'M5 2h9l5 5v15H5Zm9 0v6h5M8 12h8m-8 4h8',download:'M12 3v12m-5-5 5 5 5-5M4 15v6h16v-6',left:'m15 6-6 6 6 6',right:'m9 6 6 6-6 6',close:'m5 5 14 14M19 5 5 19',reset:'M3 10a9 9 0 1 1 1 8M3 3v7h7',rotate:'M12 3v18m-3-3 3 3 3-3m-6-12 3-3 3 3M4 8c-4 6 2 11 8 10s13-8 8-11',expand:'M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5'};
  function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.6');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',iconPaths[name]);svg.append(path);return svg;}
@@ -17,6 +18,10 @@
  document.body.classList.add('workspace-enhanced');
  const details=get('analysis-data-details'),methods=get('workspace-methods-details');
  get('workspace-methods-content').append(methods);methods.open=true;
+ const guideMethod=make('p','PCA outlier guides use PC1 and PC2 within each displayed study. The floor ellipse uses that study’s mean, sample covariance and a 95% bivariate normal reference. Profiles above the 95% squared Mahalanobis distance cutoff (D² ≈ 5.991) are flagged for review. Recorded dose supplies only the height. All profiles stay in the analysis. A study needs at least three noncollinear profiles to draw an ellipse.');
+ const methodSource=make('a','Reference ellipse method');
+ methodSource.href='https://online.stat.psu.edu/stat505/Lesson04';methodSource.target='_blank';methodSource.rel='noreferrer';
+ guideMethod.append(' ',methodSource);get('workspace-methods-content').append(guideMethod);
  get('core-analysis').append(details);
  const tableSearch=make('label');tableSearch.className='workspace-table-search';
  const search=make('input');search.type='search';search.placeholder='Search plotted data';search.setAttribute('aria-label','Search plotted data');
@@ -40,6 +45,8 @@
   if(!hit||!state.result)return hideTooltip();
   const sample=state.result.samples[hit.index];if(!sample)return;
   const tooltip=get('workspace-tooltip');tooltip.replaceChildren(make('strong',sample.sample_id),make('div',`${sample.study_id} · ${sample.dose_gy} Gy`));tooltip.hidden=false;
+  if(outlierToggle.checked&&guide?.distances[hit.index]>window.defenderPcaOutliers?.cutoff)
+   tooltip.append(make('div','Flagged for review · D² '+numeric(guide.distances[hit.index])));
   const r=get('workspace-plot').getBoundingClientRect();
   tooltip.style.left=Math.max(7,Math.min(hit.x-r.left+12,r.width-tooltip.offsetWidth-9))+'px';
   tooltip.style.top=Math.max(7,Math.min(hit.y-r.top+12,r.height-tooltip.offsetHeight-45))+'px';
@@ -58,8 +65,23 @@
   }).catch(()=>{fallback();return null;});
   return scenePromise;
  }
+ function flaggedInFocus(){
+  return guide.flagged.filter(i=>!state.highlight||state.result.samples[i].study_id===state.highlight);
+ }
+ function updateGuideControls(){
+  get('workspace-outliers').hidden=!isPcaVisible()||!guide;
+  if(!guide||state.view!=='pca')return;
+  const distances=guide.distances.filter((d,i)=>!state.highlight||state.result.samples[i].study_id===state.highlight);
+  const scored=distances.filter(Number.isFinite).length,missing=distances.length-scored;
+  const count=flaggedInFocus().length;
+  get('workspace-outlier-count').textContent=scored
+   ? (count+' of '+scored+' flagged'+(missing?' · '+missing+' unscored':''))
+   : 'No ellipse available for these profiles';
+  get('workspace-review-outlier').hidden=!count;
+ }
  function showPerspective(){
   const pca=isPcaVisible(),spatial=pca&&state.perspective==='spatial'&&!state.unavailable;
+  updateGuideControls();
   get('workspace-dimensions').hidden=state.view!=='pca'||!state.result;
   for(const button of document.querySelectorAll('[data-perspective]')){
    button.setAttribute('aria-pressed',String(button.dataset.perspective===state.perspective));
@@ -69,14 +91,15 @@
   get('workspace-axis-key').hidden=!spatial;get('workspace-spatial-hint').hidden=!spatial;get('workspace-spatial-tools').hidden=!spatial;
   get('workspace-export-png').hidden=!spatial;get('workspace-export-png').disabled=!spatial||!scene;
   const epoch=++state.epoch;
-  if(!spatial){scene?.setActive(false);if(state.view==='pca'&&baseCaption)get('analysis-caption').textContent=baseCaption;return;}
+  const guideCaption=guide?' Outlier guides trace each study’s 95% PC1–PC2 reference ellipse. Amber rings mark profiles outside it.':'';
+  if(!spatial){scene?.setActive(false);if(state.view==='pca'&&baseCaption)get('analysis-caption').textContent=baseCaption+guideCaption;return;}
   const result=state.result;
   get('workspace-axis-key').textContent=`Floor: PC1 ${ratio(result.pca.explained_variance_ratio[0])} × PC2 ${ratio(result.pca.explained_variance_ratio[1])} · Height: recorded dose (Gy)`;
   get('workspace-spatial').setAttribute('aria-busy',String(!scene));
   get('workspace-spatial-hint').textContent=scene?'Drag to rotate · Scroll to zoom · Select a profile':'Preparing the spatial view. The measured 2D chart is available.';
   loadScene().then(renderer=>{
    if(!renderer||epoch!==state.epoch||!isPcaVisible()||state.perspective!=='spatial')return;
-   try{renderer.setResult(result);renderer.select(state.selection);renderer.highlight(state.highlight);renderer.setActive(true);get('chart-scroll').hidden=true;get('workspace-spatial').setAttribute('aria-busy','false');get('workspace-spatial-hint').textContent='Drag to rotate · Scroll to zoom · Select a profile';get('analysis-caption').textContent='One point per measured profile. Height shows recorded dose, not a third principal component. Repeated donor profiles are not independent observations.';get('workspace-export-png').disabled=false;}
+   try{renderer.setResult(result);renderer.setGuidesVisible(outlierToggle.checked);renderer.select(state.selection);renderer.highlight(state.highlight);get('chart-scroll').hidden=true;get('workspace-spatial').setAttribute('aria-busy','false');get('workspace-spatial-hint').textContent='Drag to rotate · Scroll to zoom · Select a profile';get('analysis-caption').textContent='Height shows recorded dose in Gy. Donors can contribute multiple profiles.'+guideCaption;renderer.setActive(true);get('workspace-export-png').disabled=false;}
    catch{fallback();}
   });
  }
@@ -84,7 +107,18 @@
   const data=state.result;if(!data)return;
   if(state.view==='pca'){
    const nodes=[...get('analysis-chart').querySelectorAll('circle[data-inspect]')];
-   nodes.forEach((node,index)=>{const sample=data.samples[index],style=styles[sample?.study_id];if(style)node.setAttribute('fill',style.color);node.setAttribute('stroke','#10261f');node.setAttribute('opacity',!state.highlight||sample?.study_id===state.highlight?'0.95':'0.15');});
+   nodes.forEach((node,index)=>{
+    const sample=data.samples[index],style=styles[sample?.study_id],inFocus=!state.highlight||sample?.study_id===state.highlight;
+    const flagged=inFocus&&outlierToggle.checked&&guide?.distances[index]>window.defenderPcaOutliers?.cutoff;
+    if(style)node.setAttribute('fill',style.color);
+    node.setAttribute('stroke',flagged?'#ffcb68':'#10261f');node.setAttribute('stroke-width',flagged?'2.8':'.8');
+    node.setAttribute('opacity',inFocus?'0.95':'0.15');
+   });
+   for(const path of get('analysis-chart').querySelectorAll('[data-pca-boundary]')){
+    const study=path.dataset.pcaBoundary;
+    path.setAttribute('stroke',styles[study]?.color??'#c9dccf');
+    path.style.display=outlierToggle.checked&&(!state.highlight||state.highlight===study)?'':'none';
+   }
   }else if(state.view==='heatmap'){
    const samples=new Map(data.samples.map(s=>[s.sample_id,s.study_id]));
    get('analysis-chart').querySelectorAll('[data-sample]').forEach(node=>node.setAttribute('opacity',!state.highlight||samples.get(node.dataset.sample)===state.highlight?'1':'0.18'));
@@ -98,7 +132,7 @@
    button.classList.toggle('dimmed',Boolean(state.highlight)&&state.highlight!==study);button.setAttribute('aria-pressed',String(state.highlight===study));button.setAttribute('aria-label',`Highlight ${study}, ${count} profiles`);
    button.style.setProperty('--study-color',style.color);button.style.setProperty('--study-share',`${count/state.result.samples.length*100}%`);
    const mark=make('span');mark.className='workspace-study-mark '+style.shape;const bar=make('span');bar.className='workspace-study-bar';bar.append(make('i'));const total=make('span',count);total.className='workspace-study-count';button.append(mark,make('span',study),bar,total);
-   button.onclick=()=>{state.highlight=state.highlight===study?null:study;scene?.highlight(state.highlight);paintNativeChart();composition();signal(state.highlight?`Highlighting ${state.highlight}. All ${state.result.samples.length} measured profiles remain in the plot and export.`:'All measured profiles are shown.');[...host.children].find(b=>b.dataset.study===study)?.focus();};host.append(button);
+   button.onclick=()=>{state.highlight=state.highlight===study?null:study;scene?.highlight(state.highlight);paintNativeChart();composition();updateGuideControls();signal(state.highlight?`Highlighting ${state.highlight}. All ${state.result.samples.length} measured profiles remain in the plot and export.`:'All measured profiles are shown.');[...host.children].find(b=>b.dataset.study===study)?.focus();};host.append(button);
   }
  }
  function profileCard(){
@@ -110,6 +144,12 @@
   const facts=make('dl');
   for(const [label,value]of [['Recorded dose',`${sample.dose_gy} Gy`],['Study',sample.study_id],['PC1',numeric(scores[0])],['PC2',numeric(scores[1])],['Donor group',sample.group_id||'Not recorded'],['Missing genes',state.result.qc.missing_by_sample[state.selection]]]){
    const group=make('div'),description=make('dd',value);if(label==='Recorded dose')description.className='recorded-dose';group.append(make('dt',label),description);facts.append(group);
+  }
+  if(guide&&state.view==='pca'){
+   const distance=guide.distances[state.selection],row=make('div');
+   const status=window.defenderPcaOutliers.status(distance);
+   row.append(make('dt','Outlier review'),make('dd',Number.isFinite(distance)?status+' · D² '+numeric(distance):status));
+   facts.append(row);
   }
   host.append(title,facts);
  }
@@ -125,6 +165,7 @@
   const changed=result!==state.result||view!==state.view;
   if(result!==state.result){state.selection=-1;state.highlight=null;get('analysis-form').scrollTop=0;}
   state.result=result;state.view=view;page.dataset.workspaceView=view;
+  guide=result&&view==='pca'?window.defenderPcaOutliers?.forResult(result):null;
   const core=view!=='clustering',ready=core&&Boolean(result);
   get('workspace-summary').hidden=!ready;get('workspace-export').disabled=!ready;details.hidden=!ready;
   get('workspace-cohorts').hidden=!ready;get('workspace-profile').hidden=!ready;
@@ -136,8 +177,26 @@
    if(view==='pca')baseCaption=get('analysis-caption').textContent;
   }
   showPerspective();
+  if(changed&&ready&&(view==='heatmap'||view==='correlation')){
+   requestAnimationFrame(()=>{
+    if(page.hidden||state.view!==view)return;
+    const plot=get('workspace-plot').getBoundingClientRect();
+    const header=document.querySelector('main > header').getBoundingClientRect();
+    const spaceAbove=plot.top-Math.max(0,header.bottom)-8;
+    const overflowBelow=plot.bottom-window.innerHeight+12;
+    if(spaceAbove<0)window.scrollBy({top:spaceAbove,behavior:'instant'});
+    else if(overflowBelow>0)window.scrollBy({top:Math.min(spaceAbove,overflowBelow),behavior:'instant'});
+   });
+  }
  }
  window.defenderAnalysisView=Object.freeze({update,selectProfile});
+ outlierToggle.onchange=()=>{paintNativeChart();hideTooltip();showPerspective();};
+ get('workspace-review-outlier').onclick=()=>{
+  if(!guide)return;
+  const flagged=flaggedInFocus();if(!flagged.length)return;
+  if(!outlierToggle.checked){outlierToggle.checked=true;outlierToggle.onchange();}
+  selectProfile(flagged[(flagged.indexOf(state.selection)+1)%flagged.length]);
+ };
  for(const button of document.querySelectorAll('[data-perspective]'))button.onclick=()=>{state.perspective=button.dataset.perspective;hideTooltip();showPerspective();};
  get('workspace-previous').onclick=()=>{if(state.result)selectProfile(state.selection<0?state.result.samples.length-1:(state.selection-1+state.result.samples.length)%state.result.samples.length);};
  get('workspace-next').onclick=()=>{if(state.result)selectProfile((state.selection+1)%state.result.samples.length);};

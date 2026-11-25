@@ -15,6 +15,7 @@ class Element {
  focus(){}
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+const inspectedCells=node=>node['data-inspect']?[node]:node.children.flatMap(inspectedCells);
 async function scenario(hash, query='', fail=false, viewBridge=undefined){
  const ids=new Map(),get=id=>{if(!ids.has(id))ids.set(id,new Element(id));return ids.get(id);};
  get('analysis-study').value='all';get('representation').value='quantile';get('gene-count').value='500';get('heat-scale').value='zscore';get('heat-cluster').value='both';
@@ -24,7 +25,7 @@ async function scenario(hash, query='', fail=false, viewBridge=undefined){
  const pending=new Promise(resolve=>release=resolve);
  const catalog={profiles:0,studies:[],groups:0,probes:0,annotation_genes:0,samples:[]};
  // Empty plotted vectors are sufficient here; numerical/rendering coverage lives in the heatmap and real-data checks.
- const result={heatmap:{gene_ids:['1','2'],zscore:[[-1,1],[-1,null]],log2:[[1,3],[2,null]]},samples:[{sample_id:'sample-a',study_id:'GSE102971',dose_gy:0},{sample_id:'sample-b',study_id:'GSE102971',dose_gy:2}],genes_used:500,options:{study:'all',representation:'quantile',genes:500},pca:{scores:[[0,0],[1,1]],explained_variance_ratio:[0,0]},provenance:{}};
+ const result={correlation:{gene_ids:['1','2'],pearson:[[1,null],[null,1]],paired_counts:[[2,1],[1,2]]},heatmap:{gene_ids:['1','2'],zscore:[[-1,1],[-1,null]],log2:[[1,3],[2,null]]},samples:[{sample_id:'sample-a',study_id:'GSE102971',dose_gy:0},{sample_id:'sample-b',study_id:'GSE102971',dose_gy:2}],genes_used:500,options:{study:'all',representation:'quantile',genes:500},pca:{scores:[[0,0],[1,1]],explained_variance_ratio:[0,0]},provenance:{}};
  const context=vm.createContext({console:{...console,warn:(...args)=>warnings.push(args)},URLSearchParams,location,matchMedia:()=>({matches:false,addEventListener(){}}),setTimeout:()=>{},Blob,URL:{createObjectURL:blob=>{downloads.push(blob);return 'blob:test';},revokeObjectURL(){}},
   document:{getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),querySelector:()=>null,querySelectorAll:selector=>selector==='[data-view]'?tabs:[]},
   window:{defenderAnalysisView:viewBridge,defenderHeatmap:require('../app/static/heatmap-clustering.js'),addEventListener:(key,fn)=>events[key]=fn,scrollTo(){},defenderDevelopment:{ensureClusters(){}},defenderStatistics:{ensure(){}},defenderPublic:{read:async(path)=>{
@@ -62,6 +63,17 @@ async function scenario(hash, query='', fail=false, viewBridge=undefined){
  b.location.hash='#analysis';b.events.hashchange();assert.equal(b.requests.length,2);b.release();await tick();
  const c=await scenario('#analysis','?analysis=clustering');assert.equal(c.requests.length,1,'clustering deep link does not spend core-analysis request');
  c.tabs[0].onclick();assert.equal(c.requests.length,2);c.release();await tick();
+ for(const view of ['heatmap','correlation']){
+  const linked=await scenario('#analysis','?analysis='+view);linked.release();await tick();
+  assert.equal(linked.get('analysis-panel')['aria-labelledby'],'tab-'+view);
+  assert.deepEqual(linked.requests,['/api/catalog','/api/analysis'],view+' link loads the active cohort once');
+  if(view==='correlation'){
+   const cells=inspectedCells(linked.get('analysis-chart'));
+   assert.deepEqual(cells.map(cell=>cell.fill),['rgb(164,65,79)','#d9ddda','#d9ddda','rgb(164,65,79)']);
+   cells[1].onclick();
+   assert.equal(linked.get('point-detail').textContent,'GeneIDs 1 × 2 · Pearson r undefined · 1 paired profiles');
+  }
+ }
  const retired=await scenario('#analysis','?analysis=statistics');assert.deepEqual(retired.requests,['/api/catalog','/api/analysis'],'an old dose-response link safely opens the retained PCA view');retired.release();await tick();
  const d=await scenario('#analysis','',true);d.release();await tick();
  assert(d.get('analysis-status').textContent.includes('retry'));d.events.hashchange();assert.equal(d.requests.length,2,'failure does not loop automatically');
@@ -70,7 +82,7 @@ async function scenario(hash, query='', fail=false, viewBridge=undefined){
  assert(updates.some(state=>state.result===e.result&&state.view==='pca'),'presentation receives the exact existing result, without another request');
  assert.equal(e.requests.length,2);
  const saved=JSON.stringify(e.result);e.tabs[1].onclick();assert.equal(JSON.stringify(e.result),saved,'presentation notifications preserve all measured values');
- const heatCell=e.get('analysis-chart').children.find(node=>node['data-gene']);heatCell.onclick();
+ const [heatCell]=inspectedCells(e.get('analysis-chart'));heatCell.onclick();
  assert.equal(e.get('point-detail').textContent,heatCell['aria-label'],'the inspector cannot overwrite the selected gene expression value');
  const f=await scenario('#analysis','',false,{update(){throw Error('Optional renderer unavailable');}});f.release();await tick();
  assert.equal(f.get('analysis-content').hidden,false,'the existing 2D chart survives presentation failure');

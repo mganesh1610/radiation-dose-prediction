@@ -11,12 +11,13 @@ from pathlib import Path
 from cloud_io import PREFIX, Conflict, digest, encode
 from dispatch_control import DispatchControl
 from job_queue import Queue, job_name
-from training_contract import PRESETS, CORE, validate_job
+from training_contract import PRESETS, CORE, validate_job, job_request
 
 BASE=PREFIX+'control/bridge/'
 WORKER_FILES=('training_worker.py','portable_model.py','training_contract.py','core_transfer.py',
               'core_baseline.py','run_core_baselines.py','assay_qc.py','masked_quantile.py',
-              'job_queue.py','cloud_io.py','dispatch_control.py','mac_worker_loop.py','training_bridge.py')
+              'job_queue.py','cloud_io.py','dispatch_control.py','mac_worker_loop.py','training_bridge.py',
+              'combined_training.py','weighted_pls.py')
 
 
 def worker_hashes(directory):
@@ -48,8 +49,9 @@ def validate_approval(cloud,entry,code_hashes=None):
 
 
 class TrainingBridge:
-    def __init__(self,cloud,owner,dataset,policy,*,reviewer=False,month=None,clock=time.time):
+    def __init__(self,cloud,owner,dataset,policy,*,reviewer=False,month=None,clock=time.time,previous=()):
         self.cloud,self.owner,self.dataset,self.policy=cloud,owner,dataset,policy
+        self.previous=previous
         self.reviewer,self.clock=reviewer,clock
         self.control=DispatchControl(cloud,month)
         if set(policy)!=set(WORKER_FILES) or any(not re.fullmatch('[a-f0-9]{64}',h) for h in policy.values()):
@@ -60,12 +62,13 @@ class TrainingBridge:
             raise ValueError('Choose one fixed method and one core holdout')
         if job_month(body['job_id'])!=self.control.month:raise ValueError('Use the current admission month')
         if not isinstance(body['method'],str) or body['method'] not in PRESETS:raise ValueError('Unsupported engineering preset')
-        job=dict(body,schema_version=1,purpose='engineering_smoke',dataset=self.dataset,parameters=PRESETS[body['method']])
+        job=job_request(body,self.dataset)
         validate_job(job)
         plan={'procedure':'approved-engineering-v1','job':job,'owner_binding':digest(self.owner.encode()),
               'worker_code_sha256':self.policy,'seed':20260930,
               'limits':{'attempt_seconds':720,'max_attempts':3,'deployment_allowed':False},
-              'evaluation':'single core study holdout; preprocessing fitted on remaining core studies; engineering only',
+              'evaluation':('Validate on one whole-blood study using the other studies and 422 WBC profiles. Refit on all 567 profiles.'
+                            if job['schema_version']==2 else 'Single whole-blood study held out from the core training fit.'),
               'compute':'Existing Mac worker; no cloud training. May wait while the Mac is offline.',
               'cost':'Consumes one of 12 monthly jobs (reviewers: 2). Cloud storage/API usage remains metered.'}
         return {'plan':plan,'approval_sha256':digest(encode(plan)),'status':'approval_required'}
@@ -93,7 +96,7 @@ class TrainingBridge:
         entry=control['jobs'].get(job_id)
         if not entry or entry['owner']!=self.owner:raise FileNotFoundError()
         validate_job(entry['request'])
-        if entry['request']['dataset']!=self.dataset or digest(encode(entry['request']))!=entry['sha256']:
+        if entry['request']['dataset'] not in (self.dataset,*self.previous) or digest(encode(entry['request']))!=entry['sha256']:
             raise ValueError('Job/release integrity failure')
         if entry.get('bridge_approval_sha256'):validate_approval(self.cloud,entry)
         return entry
@@ -122,10 +125,12 @@ class TrainingBridge:
             if (committed['request_sha256']!=entry['sha256'] or result['job_id']!=job_id
                     or result['method']!=job['method'] or result['holdout_study']!=job['holdout_study']
                     or result['purpose']!='engineering_smoke' or result['deployment_allowed'] is not False
-                    or result['train_samples']!=145-CORE[job['holdout_study']] or result['validation_samples']!=CORE[job['holdout_study']]):
+                    or result['train_samples']!=(567 if job['schema_version']==2 else 145)-CORE[job['holdout_study']]
+                    or (job['schema_version']==2 and result.get('refit_samples')!=567) or result['validation_samples']!=CORE[job['holdout_study']]):
                 raise ValueError('Result/request integrity failure')
             metrics={k:result['metrics'][k] for k in ('mae','rmse','bias')}
             if any(type(v) not in (int,float) or not math.isfinite(v) for v in metrics.values()):raise ValueError('Invalid metrics')
+            if job['schema_version']==2: answer['refit_profiles']=result['refit_samples']
             answer.update(metrics_gy=metrics,train_profiles=result['train_samples'],validation_profiles=result['validation_samples'],
                           checks=result['checks'],result_sha256=ref['sha256'])
         return answer

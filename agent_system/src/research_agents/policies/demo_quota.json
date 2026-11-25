@@ -1,0 +1,7 @@
+{
+  "starts_at": "2026-11-24T07:00:00Z",
+  "ends_at": "2026-12-14T07:00:00Z",
+  "public_visitors_per_day": 50,
+  "messages_per_visitor": 20,
+  "team_messages_per_day": 100
+}

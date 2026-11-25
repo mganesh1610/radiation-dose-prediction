@@ -34,10 +34,12 @@ Real demonstration profiles that overlap training are labelled accordingly.
 
 The deployed training button runs a bounded fixed-preset engineering job on the
 Mac worker. It does not rerun the final experiment or replace frozen predictors.
-The public structured assistant returns approved records through deterministic
-matching. The authenticated research copilot separately uses an ADK Coordinator
-and remote A2A Evidence Specialist with controlled tools and cited retrieval.
+The guest assistant supports published record lookup and bounded AI questions.
+The authenticated research copilot uses an ADK Coordinator and remote A2A
+Evidence Specialist with controlled tools and cited retrieval.
 Source tests and live human answer review are distinct forms of verification.
 
 Repository tests establish code behavior, not end-to-end clinical performance.
 See the hosted experiment view for published metrics and model cards.
+
+The retrospective whole-blood + WBC boosting model recorded 0.777 Gy donor-balanced MAE on these same 52 profiles. Independent whole-blood validation in new donors remains open.

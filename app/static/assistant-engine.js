@@ -18,11 +18,25 @@
   }
   if(/\bmae\b|\brmse\b|\bbias\b/.test(q)&&!/study bias/.test(q)){
    if(!/final|test/.test(q))return {answer:'Please specify “final test” and the model name. Development, selection and final-test errors use different evaluations.',sources:[{label:'Model comparisons',url:'#experiments'}],status:'clarification'};
-   const ids={a:/\bmodel a\b/,b:/\bmodel b\b/,c:/\bmodel c\b/,d:/\bmodel d\b/,elastic_net:/elastic net/,pls:/\bpls\b|partial least/,gradient_boosting:/gradient boosting/,median_null:/median/};
-   const match=Object.entries(ids).filter(([,r])=>r.test(q));if(match.length!==1)return {answer:'Please name one frozen model: A, B, C, D, Elastic Net, PLS, gradient boosting or median.',sources:[],status:'clarification'};
-   const id=match[0][0].length===1?match[0][0].toUpperCase():match[0][0];const model=data.final_models.find(r=>r.id===id);if(!model)return unknown;
-   const score=model.scores.find(s=>s.seed_role==='primary')||model.scores[0],metric=/rmse/.test(q)?'donor_rmse':/bias/.test(q)?'donor_bias':'donor_mae',label=metric.replace('donor_','').toUpperCase();
-   return {answer:`${model.name}: final-test donor-balanced ${label} = ${score[metric].toFixed(3)} Gy, primary frozen model. Test: GSE90909, 52 profiles, 12 donor groups. This score is not an individual prediction interval or a deployment recommendation.`,sources:[{label:'Frozen model card',url:'?model='+id+'#experiments'}],status:'recorded'};
+   const names = {A:/\bmodel a\b|whole.blood neural regression/, B:/\bmodel b\b|wbc.pretrained/,
+    C:/\bmodel c\b|multitask neural/, D:/\bmodel d\b|weighted neural/, elastic_net:/elastic net/,
+    pls:/\bpls\b|partial least/, median_null:/median/};
+   let ids = Object.keys(names).filter(id => names[id].test(q));
+   if (/gradient boosting/.test(q)) {
+    if (/wbc|white blood cell|combined/.test(q)) ids.push('gradient_boosting_wb_wbc');
+    else if (/whole.blood|core.only/.test(q)) ids.push('gradient_boosting');
+    else ids.push('gradient_boosting', 'gradient_boosting_wb_wbc');
+   }
+   if (!ids.length) return {answer:'Enter the model name from the comparison table.',sources:[{label:'Model comparisons',url:'#experiments'}],status:'clarification'};
+   const models = data.final_models.filter(model => ids.includes(model.id));
+   if (!models.length) return unknown;
+   const metric = /rmse/.test(q) ? 'donor_rmse' : /bias/.test(q) ? 'donor_bias' : 'donor_mae';
+   const values = models.map(model => {
+    const score = model.scores.find(row => row.seed_role === 'primary') || model.scores[0];
+    return `${model.name} · ${metric.slice(6).toUpperCase()} ${score[metric].toFixed(3)} Gy.`;
+   });
+   return {answer:values.join(' ')+' Donor-balanced error on GSE90909, 52 profiles from 12 donors.',
+    sources:models.map(model => ({label:model.name,url:'?model='+model.id+'#experiments'})),status:'recorded'};
   }
   const matches=data.facts.map(f=>({f,score:f.terms.filter(t=>q.includes(t)).length})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
   if(matches.length)return {answer:matches[0].f.answer,sources:matches[0].f.sources,status:'recorded'};

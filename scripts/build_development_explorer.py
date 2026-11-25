@@ -10,6 +10,8 @@ from pathlib import Path
 
 import numpy as np
 
+from research_catalog import COMBINED_BOOSTING, MODEL_NAMES
+
 ROOT = Path(__file__).resolve().parents[1]
 PINS = {
     'clustering': '5a4f36789194c3a90169f1b8bad28ebb593575c205a32ea2d5d7afb6978f4998',
@@ -32,6 +34,56 @@ NAMES = {
     'gmm_ridge': ('Gaussian mixture + Ridge', 'Clustering / PCA'),
     'cluster_median': ('Cluster-median predictor', 'Clustering / PCA'),
 }
+
+
+def matched_boosting(checked):
+    path = 'data/experiments/dataset-expansion-v2/original-gb-augmentation-20261029-v5/results.json'
+    raw = (ROOT / path).read_bytes()
+    checksum = hashlib.sha256(raw).hexdigest()
+    if checksum != '92cf83e5bf17502fc1befdd9caa43007479e3ac3303486349123d4042c7c3f7b':
+        raise ValueError('Fixed-settings boosting results changed')
+    checked[path] = checksum
+    identifiers = {'core_only': 'gradient_boosting', 'original_aux': COMBINED_BOOSTING}
+    rows = []
+    for run in json.loads(raw)['scores']:
+        if run['arm'] not in identifiers or run['seed'] != 20261002:
+            continue
+        model = identifiers[run['arm']]
+        metrics = run['metrics']
+        overall = metrics['overall']
+        if (overall['samples'], overall['donors']) != (145, 30):
+            raise ValueError('Unexpected fixed-settings holdouts')
+        rows.append(dict(model=model, label=MODEL_NAMES[model], mae_gy=overall['mae'],
+                         rmse_gy=overall['rmse'], bias_gy=overall['bias'],
+                         worst_study_mae_gy=metrics['worst_study_mae']))
+    if {row['model'] for row in rows} != set(identifiers.values()) or len(rows) != 2:
+        raise ValueError('Missing matched boosting arm')
+    return dict(protocol='Same fixed settings in each leave-one-study-out fold',
+                held_out_profiles=145, donor_groups=30, primary_seed=20261002,
+                held_out_studies=['GSE8917', 'GSE65292', 'GSE102971'],
+                rows=sorted(rows, key=lambda row: row['mae_gy']))
+
+
+def retrospective_evaluation(checked, models):
+    path = 'data/experiments/combined-567-gse90909-v1/results.json'
+    raw = (ROOT / path).read_bytes()
+    signature = hashlib.sha256(raw).hexdigest()
+    if signature != 'da030670e42eb164358868981e41775c1883f64b61c7a53b8264993fe1a2c56b':
+        raise ValueError('Retrospective results differ from the reviewed run')
+    source = json.loads(raw)
+    if (source['cohort'], source['profiles'], source['donors'], source['training_profiles'],
+            source['retrospective'], source['external_predictions']) != ('GSE90909', 52, 12, 567, True, 1040):
+        raise ValueError('Unexpected retrospective cohort')
+    if set(source['models']) != models or len(models) != 20:
+        raise ValueError('Unmatched model in retrospective comparison')
+    checked[path] = signature
+    keys = ('mae_gy', 'rmse_gy', 'bias_gy', 'mae_ci_low_gy', 'mae_ci_high_gy', 'source')
+    rows = {name:{key:r[key] for key in keys} for name,r in source['models'].items()}
+    control = source['fixed_whole_blood_control']
+    return dict(release=source['release'], study=source['cohort'], profiles=52, donors=12,
+                training_profiles=567, retrospective=True, run_date=source['evaluated_at'][:10],
+                metric='Donor-balanced MAE in Gy', models=rows,
+                fixed_whole_blood_control={key:control[key] for key in ('mae_gy','rmse_gy','bias_gy')})
 
 
 def build_payload():
@@ -101,28 +153,36 @@ def build_payload():
                                      labels=[labels.get(i) for i in ids],
                                      **{key: float(score[key]) if score[key] else None for key in ('silhouette', 'study_ari', 'dose_group_ari', 'exposure_ari')}))
             views.append(dict(scope=scope, representation=representation,
-                              points=[dict(meta[i], x=float(z[n, 0]), y=float(z[n, 1])) for n, i in enumerate(ids)], fits=fits))
+                              points=[dict(meta[i], x=float(z[n, 0]), y=float(z[n, 1]), z=float(z[n, 2]))
+                                      for n, i in enumerate(ids)], fits=fits))
 
-    regression = json.loads(read('extended-models', 'regression-summary.json'))
-    regression += [r for r in json.loads(read('clustering', 'regression-summary.json')) if r['model'] in ('pca_ridge', 'kmeans_ridge', 'gmm_ridge', 'cluster_median')]
+    path = 'data/experiments/combined-development-v2/summary.json'
+    summary = json.loads((ROOT / path).read_bytes())
+    scientific = {k: v for k, v in summary.items() if k != 'completed_utc'}
+    signature = hashlib.sha256(json.dumps(scientific, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    if signature != 'a3d271b901bd4487d2be3b6aa9e95874a6a8199cd8060359bebccc60ef38ca71' or summary['final_test_included'] is not False:
+        raise ValueError('Combined development scores differ from the reviewed run')
+    checked[path] = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
     output = []
-    for r in regression:
-        name, family = NAMES[r['model']]
-        output.append(dict(model=r['model'], label=name, family=family,
-                           **{k: r[k] for k in ('mae_gy', 'rmse_gy', 'bias_gy', 'worst_study_mae_gy')},
-                           equal_study_mae_gy=r.get('macro_study_mae_gy', r.get('equal_study_mae_gy')),
-                           training='Core + auxiliary' if r['model'] in ('B', 'C', 'D') else 'Core only'))
-    if len(output) != 20 or len({r['model'] for r in output}) != 20:
-        raise ValueError('Unexpected model family inventory')
-    classifiers = []
-    names = {'logistic_l1': 'Logistic regression · L1', 'logistic_l2': 'Logistic regression · L2', 'gaussian_nb': 'Gaussian Naive Bayes'}
-    for r in rows('extended-models', 'classification-metrics.tsv'):
-        if r['seed_index'] == '0' and r['slice'] == 'all':
-            classifiers.append(dict(model=r['model'], label=names[r['model']], study=r['study'], profiles=int(r['profiles']),
-                                    **{k: float(r[k]) for k in ('balanced_accuracy', 'specificity', 'sensitivity')}))
-    payload = dict(schema_version=1, release_id='development-exploration-v1', purpose='exploratory_development',
+    for r in summary['regression']:
+        source = r['model']
+        name, family = NAMES[source]
+        model = {'A':'pooled_neural_regression', 'gradient_boosting':COMBINED_BOOSTING}.get(source,source)
+        label = 'Pooled neural dose regression' if source == 'A' else MODEL_NAMES.get(model, name)
+        output.append(dict(model=model, label=label, family=family,
+                           **{k:r[k] for k in ('mae_gy','rmse_gy','bias_gy','worst_study_mae_gy','equal_study_mae_gy')},
+                           training='Whole blood + WBC'))
+    names = {'logistic_l1':'Logistic regression · L1','logistic_l2':'Logistic regression · L2','gaussian_nb':'Gaussian Naive Bayes'}
+    classifiers = [dict(label=names[r['model']],**{k:r[k] for k in ('model','study','profiles','balanced_accuracy','specificity','sensitivity')})
+                   for r in summary['classification']]
+    payload = dict(schema_version=3, release_id=summary['release_id'], purpose='exploratory_development',
                    final_test_included=False, candidate_profiles=607, eligible_profiles=567, core_profiles=145,
-                   source_expression_values=30053455, views=views, regression=sorted(output, key=lambda r: r['mae_gy']),
+                   wbc_profiles=422, held_out_profiles=145, held_out_donor_groups=30, folds=summary['folds'],
+                   development_run_date=summary['completed_utc'][:10], source_expression_values=30053455,
+                   views=views, regression=sorted(output, key=lambda r:r['mae_gy']),
+                   matched_gradient_boosting=matched_boosting(checked),
+                   retrospective_evaluation=retrospective_evaluation(checked, {r['model'] for r in output}),
+                   benchmark_protocol='Nested whole-blood study holdouts. All 422 WBC profiles are training-only in every fold.',
                    classification=classifiers, primary_seed=20261002, diagnostic_seed=20261003)
     json.dumps(payload, allow_nan=False)
     return payload, checked
