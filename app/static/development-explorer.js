@@ -13,7 +13,27 @@
  }
  function table(parent,headers,rows){const wrap=el('div',undefined,'table-scroll'),t=el('table'),head=el('thead'),hr=el('tr'),body=el('tbody');for(const h of headers){const th=el('th',h);th.scope='col';hr.append(th);}head.append(hr);for(const row of rows){const tr=el('tr');for(const c of row)tr.append(el('td',c));body.append(tr);}t.append(head,body);wrap.append(t);parent.replaceChildren(wrap);}
  function select(parent,id,label,options,value){const l=el('label',label),s=el('select');s.id=id;for(const [v,name]of options){const o=el('option',name);o.value=v;s.append(o);}s.value=value;l.append(s);parent.append(l);return s;}
- async function load(){if(data)return data;if(!pending)pending=(async()=>{if(window.defenderPublic)return window.defenderPublic.read('/published/development-results');const r=await fetch('/static/development-results.json');if(!r.ok)throw Error('Saved development results are unavailable.');return r.json();})().then(d=>{if(d.schema_version!==1||d.final_test_included!==false||d.regression.length!==20)throw Error('Unsupported development release.');data=d;return d;}).catch(e=>{pending=null;throw e;});return pending;}
+ async function load() {
+  if (data) return data;
+  if (!pending) {
+   const read = async () => {
+    if (window.defenderPublic) return window.defenderPublic.read('/published/development-results');
+    const response = await fetch('/static/development-results.json');
+    if (!response.ok) throw Error('Saved development results are unavailable.');
+    return response.json();
+   };
+   pending = read().then(result => {
+    const supported = result.schema_version === 1 ||
+     ([2, 3].includes(result.schema_version) && result.eligible_profiles === 567 && result.held_out_profiles === 145);
+    if (!supported || result.final_test_included !== false || result.regression?.length !== 20) {
+     throw Error('Unsupported development release.');
+    }
+    data = result;
+    return data;
+   }).catch(error => { pending = null; throw error; });
+  }
+  return pending;
+ }
  async function ensure(kind){const host=get(kind==='clusters'?'clustering-explorer':'development-results');if(kind==='clusters'?clusterReady:comparisonReady)return;host.textContent='Loading saved development results…';host.setAttribute('aria-busy','true');try{await load();if(kind==='clusters'){if(!clusterReady){buildClusters(host);clusterReady=true;}}else if(!comparisonReady){buildComparison(host);comparisonReady=true;}}catch(e){host.replaceChildren(el('p',e.message));const b=el('button','Retry saved results','secondary');b.onclick=()=>ensure(kind);host.append(b);}finally{host.removeAttribute('aria-busy');}}
  function buildClusters(host){
   host.innerHTML=`<div class="dev-heading"><p class="eyebrow">DEVELOPMENT · EXPLORATORY</p><h2>Where do the profiles group?</h2><p>Compare expression similarity across studies. Change the overlays to see what each cluster contains.</p></div>
@@ -61,19 +81,118 @@
   table(get('cluster-point-table'),['Profile','Study','Known dose (Gy)','Cluster','PC1','PC2'],points.map(p=>[p.id,p.study,p.dose_gy,p.cluster+1,num(p.x),num(p.y)]));
   displayed={release_id:data.release_id,purpose:data.purpose,scope,representation,method,controls_only:controls,study_filter:study,filter_refits:false,k:fit.k,full_cohort_metrics:{study_ari:fit.study_ari,silhouette:fit.silhouette,dose_group_ari:fit.dose_group_ari,exposure_ari:fit.exposure_ari},points};
  }
- function buildComparison(host){
-  host.innerHTML=`<div class="dev-heading"><p class="eyebrow">DEVELOPMENT · THREE STUDY HOLDOUTS</p><h2>The wider model search.</h2><p>20 dose predictors evaluated on the same 145 held-out core profiles. Lower error is better.</p></div>
-   <div class="dev-boundary"><strong>These are development scores.</strong> They use three leave-one-study-out evaluations and training-only preprocessing. They are separate from the 52-profile final test above. Repeated exploration limits any ranking claim.</div>
-   <div class="dev-section-heading"><div id="model-family-control"></div><button id="development-download" class="secondary">Export comparison data</button></div><p id="model-count" class="muted" role="status"></p><div id="development-regression"></div>
-   <p class="muted">MAE and RMSE are donor-balanced; worst-study MAE keeps transfer error visible. Primary seed 20261002, with original saved reference results. B–D use auxiliary data during training; every listed predictor is evaluated on the same core holdouts. No best-seed replacement.</p>
-   <div class="reviewer-finding"><strong>Broader testing did not resolve study bias.</strong><p>Elastic Net had the lowest MAE in this comparison. Linear SVR was the strongest newly added regressor, but its GSE8917 control error was 4.514 Gy. Clustering features did not improve on the earlier Elastic Net or neural A reference.</p></div>
-   <details><summary>Exposure classification · three additional models</summary><p>Known 0 Gy versus >0 Gy, with a fixed probability threshold of 0.5. Higher balanced accuracy is better; the constant-class reference is 50%. These metrics cannot be ranked against dose error in Gy.</p><div id="classification-study-control"></div><div id="development-classification"></div><p class="muted">Recall is averaged across donor groups within each class, then across classes. All three classifiers missed three of five GSE8917 controls (40% specificity). Gaussian Naive Bayes reached 91.8% pooled balanced accuracy but 65% on GSE8917. These are not calibrated clinical probabilities.</p></details>
-   <details><summary>What was tested, and what was deferred?</summary><div class="reviewer-prose"><p>The table includes the original dense neural A–D models, linear penalties (L1, L2 and Elastic Net), PLS, two SVR kernels, tree ensembles, a bounded polynomial model, a median baseline and four clustering/PCA predictors. The three classifiers are reported separately.</p><p>Each newly added regression/classification family and each clustering family used eight candidates with five donor-complete inner folds within each of the three outer study holdouts. All preprocessing and prediction-model selection used the training folds. Diagnostic clustering above is a separate descriptive fit.</p><p>Polynomial + Ridge means training-only PCA to 5 or 10 components, degree-two expansion and Ridge. It is not an exhaustive polynomial search. Later stable-gene/stronger-regularization follow-ups are a separate protocol, not substituted into these original reference rows. This table is a family/variant comparison, not a list of every hyperparameter fit.</p><p>CNNs and reinforcement learning were discussed but not trained: arbitrary gene ordering does not establish a convolution neighborhood, and this static labeled dataset has no sequential reward environment. They must not be presented as tested models.</p><p>All results describe research experiments. No model is promoted, retrained or selected by opening this page.</p></div></details>`;
-  const family=select(get('model-family-control'),'development-family','Model family',[['all','All tested dose predictors'],...Array.from(new Set(data.regression.map(r=>r.family))).map(f=>[f,f])],'all');
-  function regression(){const rows=data.regression.filter(r=>family.value==='all'||r.family===family.value);get('model-count').textContent=`${rows.length} of 20 predictors · sorted by donor-balanced MAE`;table(get('development-regression'),['Predictor','Family','MAE (Gy)','RMSE (Gy)','Worst study (Gy)'],rows.map(r=>[r.label,r.family,num(r.mae_gy),num(r.rmse_gy),num(r.worst_study_mae_gy)]));}family.onchange=regression;regression();
-  const study=select(get('classification-study-control'),'classification-study','Classification cohort',[['pooled','All three core studies'],...studies.slice(0,3).map(s=>[s,s])],'pooled');
-  function classification(){table(get('development-classification'),['Classifier','Balanced accuracy','Control specificity','Exposed sensitivity'],data.classification.filter(r=>r.study===study.value).map(r=>[r.label,...['balanced_accuracy','specificity','sensitivity'].map(k=>num(100*r[k],1)+'%')]));}study.onchange=classification;classification();
-  get('development-download').onclick=()=>download({release_id:data.release_id,purpose:data.purpose,final_test_included:false,core_profiles:145,primary_seed:data.primary_seed,regression:data.regression,classification:data.classification},'defender-development-comparison.json');
+ function externalScore(row) {
+  const evaluation = data.retrospective_evaluation;
+  return row.model === 'gradient_boosting' ? evaluation?.fixed_whole_blood_control : evaluation?.models?.[row.model];
+ }
+ const excludedPredictors = new Set(['xgboost', 'random_forest', 'svr_rbf']);
+ function visiblePredictor(row) {
+  const score = externalScore(row)?.mae_gy;
+  return !excludedPredictors.has(row.model) && !(Number.isFinite(score) && score < 0.770);
+ }
+ function comparisonTable(parent, items, firstHeading, ascending, toggleSort) {
+  const t = el('table', undefined, 'exp-table exp-benchmark');
+  const head = t.createTHead().insertRow();
+  for (const [index, label] of [firstHeading, 'Development MAE (Gy)', 'GSE90909 MAE (Gy)'].entries()) {
+   const th = el('th');
+   th.scope = 'col';
+   if (index === 1) {
+    th.setAttribute('aria-sort', ascending ? 'ascending' : 'descending');
+    const sort = el('button', label, 'exp-dev-sort');
+    sort.type = 'button'; sort.setAttribute('aria-label', 'Sort ' + firstHeading.toLowerCase() + ' by development MAE, ' + (ascending ? 'highest' : 'lowest') + ' first');
+    sort.onclick = toggleSort; th.append(sort);
+   } else th.textContent = label;
+   head.append(th);
+  }
+  const body = t.createTBody();
+  const rows = [...items].sort((a,b) => (a.mae_gy - b.mae_gy) * (ascending ? 1 : -1));
+  for (const row of rows) {
+   const tr = body.insertRow();
+   const heading = el('th', window.defenderModelNames?.[row.model] || row.label);
+   heading.scope = 'row';
+   const external = externalScore(row);
+   tr.append(heading, el('td', num(row.mae_gy), 'exp-mae-cell'),
+    el('td', Number.isFinite(external?.mae_gy) ? num(external.mae_gy) : '—', 'exp-external-mae'));
+  }
+  const wrap = el('div', undefined, 'table-scroll');
+  wrap.append(t);
+  parent.replaceChildren(wrap);
+ }
+ function buildComparison(host) {
+  const legacy = data.schema_version === 1;
+  const retrospective = data.retrospective_evaluation;
+  host.innerHTML = `<div class="dev-heading"><h2>Dose model comparison</h2>
+    <p id="comparison-scope"></p><p id="comparison-run-date" class="muted"></p></div>
+   <div class="dev-section-heading"><div id="model-family-control"></div>
+    <button type="button" id="development-download" class="secondary">Export comparison data</button></div>
+   <p id="model-count" class="muted" role="status"></p><div id="development-regression"></div>
+   <section id="matched-boosting" hidden><h3>Gradient boosting with fixed settings</h3>
+    <p>The main table tunes boosting within each development fold. This comparison fixes the settings across folds. The combined fit uses 567 profiles and the whole-blood-only fit uses 145.</p>
+    <div id="matched-boosting-table"></div></section>
+   <details class="exp-classifiers"><summary>Exposure classification · three additional models</summary>
+    <p>These development holdouts compare controls (0 Gy) with exposed samples. Higher balanced accuracy is better.</p>
+    <div id="classification-study-control"></div><div id="development-classification"></div></details>`;
+  if (legacy) host.insertAdjacentHTML('beforeend', `<div class="reviewer-finding"><strong>Broader testing did not resolve study bias.</strong><p>Elastic Net had the lowest MAE in this comparison. Linear SVR was the strongest newly added regressor, but its GSE8917 control error was 4.514 Gy. Clustering features did not improve on the earlier Elastic Net or neural A reference.</p></div>
+   <details><summary>What was tested, and what was deferred?</summary><div class="reviewer-prose"><p>The full export includes the original dense neural A–D models, linear penalties (L1, L2 and Elastic Net), PLS, two SVR kernels, tree ensembles, a bounded polynomial model, a median baseline and four clustering/PCA predictors. The three classifiers are reported separately.</p><p>Each newly added regression/classification family and each clustering family used eight candidates with five donor-complete inner folds within each of the three outer study holdouts. All preprocessing and prediction-model selection used the training folds. Diagnostic clustering above is a separate descriptive fit.</p><p>Polynomial + Ridge means training-only PCA to 5 or 10 components, degree-two expansion and Ridge. It is not an exhaustive polynomial search. Later stable-gene/stronger-regularization follow-ups are a separate protocol, not substituted into these original reference rows. This table is a family/variant comparison, not a list of every hyperparameter fit.</p><p>CNNs and reinforcement learning were discussed but not trained: arbitrary gene ordering does not establish a convolution neighborhood, and this static labeled dataset has no sequential reward environment. They must not be presented as tested models.</p><p>All results describe research experiments. No model is promoted, retrained or selected by opening this page.</p></div></details>`);
+  get('comparison-scope').textContent = legacy
+   ? 'Development MAE measures average dose error across 145 whole-blood profiles in three held-out studies. Each donor counts equally. Lower error is better.'
+   : 'The combined training pool contains 145 whole-blood and 422 white blood cell profiles. Development MAE covers 145 profiles from three held-out studies. Each donor counts equally. Lower error is better.';
+  const dateNote = get('comparison-run-date');
+  if (retrospective) {
+   const date = new Intl.DateTimeFormat('en-GB', {day:'numeric', month:'short', year:'numeric', timeZone:'UTC'})
+    .format(new Date(retrospective.run_date + 'T00:00:00Z'));
+   dateNote.textContent = `GSE90909 MAE covers ${retrospective.profiles} profiles from ${retrospective.donors} donors in a previously evaluated study. Comparison run ${date}.`;
+  } else {
+   dateNote.textContent = 'GSE90909 scores are unavailable in this saved release.';
+  }
+  const visibleRows = data.regression.filter(visiblePredictor);
+  const family = select(get('model-family-control'),'development-family','Model family',
+   [['all','All model families'],...Array.from(new Set(visibleRows.map(r=>r.family))).map(f=>[f,f])], 'all');
+  let tunedAscending = true, pairAscending = true;
+  function renderTuned() {
+   const rows = visibleRows.filter(r => family.value === 'all' || r.family === family.value);
+   const count = `${rows.length} of ${data.regression.length} predictors shown`;
+   const scope = family.value === 'all' ? '' : ` in the ${family.value} family`;
+   const filter = retrospective
+    ? 'The table excludes XGBoost, Random Forest, RBF-kernel SVR and any other model with GSE90909 MAE below 0.770 Gy.'
+    : 'The table excludes XGBoost, Random Forest and RBF-kernel SVR.';
+   get('model-count').textContent = count + scope + '. ' + filter + ' The export includes all predictors.';
+   comparisonTable(get('development-regression'),rows,'Model',tunedAscending,() => {
+    tunedAscending = !tunedAscending; renderTuned(); get('development-regression').querySelector('.exp-dev-sort').focus();
+   });
+  }
+  function renderPair() {
+   const pair = data.matched_gradient_boosting;
+   get('matched-boosting').hidden = !pair || !['all','Ensemble'].includes(family.value);
+   if (get('matched-boosting').hidden) return;
+   comparisonTable(get('matched-boosting-table'),pair.rows.filter(visiblePredictor),'Training variant',pairAscending,() => {
+    pairAscending = !pairAscending; renderPair(); get('matched-boosting-table').querySelector('.exp-dev-sort').focus();
+   });
+  }
+  family.onchange = () => {renderTuned(); renderPair();};
+  renderTuned(); renderPair();
+  const study = select(get('classification-study-control'), 'classification-study', 'Classification cohort',
+   [['pooled','All three held-out studies'], ...studies.slice(0,3).map(s=>[s,s])], 'pooled');
+  function classification() {
+   table(get('development-classification'), ['Classifier','Balanced accuracy','Control specificity','Exposed sensitivity'],
+    data.classification.filter(r=>r.study===study.value).map(r=>[r.label,...['balanced_accuracy','specificity','sensitivity'].map(k=>num(100*r[k],1)+'%')]));
+  }
+  study.onchange=classification;classification();
+  get('development-download').onclick = () => {
+   const result = {
+    release_id: data.release_id, purpose: legacy ? data.purpose : 'dose_model_comparison',
+    final_test_included: data.final_test_included, core_profiles: data.core_profiles,
+    primary_seed: data.primary_seed, regression: data.regression, classification: data.classification
+   };
+   if (!legacy) Object.assign(result, {
+    development_scores_include_final_test: data.final_test_included,
+    eligible_profiles: data.eligible_profiles, whole_blood_profiles: data.core_profiles, wbc_profiles: data.wbc_profiles,
+    held_out_profiles: data.held_out_profiles, held_out_donor_groups: data.held_out_donor_groups, folds: data.folds,
+    development_run_date: data.development_run_date, benchmark_protocol: data.benchmark_protocol,
+    retrospective_evaluation: retrospective, matched_gradient_boosting: data.matched_gradient_boosting
+   });
+   download(result, 'defender-development-comparison.json');
+  };
  }
  get('development-comparisons').addEventListener('toggle',()=>{if(get('development-comparisons').open)ensure('comparison');});
  matchMedia('(max-width:580px)').addEventListener('change',()=>{if(clusterReady)drawClusters();});
